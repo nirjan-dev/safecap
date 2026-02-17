@@ -14,11 +14,13 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 ## Use Cases
 
 ### 1. Demo Recording (Loom Alternative)
+
 - Record screen + audio for product demos, tutorials, bug reports
 - Export with transcripts, timestamps, and summaries
 - Share via exported files or cloud storage (future)
 
 ### 2. Meeting Recording (Granola Alternative)
+
 - Record audio/video from Zoom, Meet, Teams, etc.
 - Generate transcripts and summaries for later review
 - Manual activation required
@@ -34,6 +36,7 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 ## Phase 1: Core Recording (MVP)
 
 ### Goals
+
 - Cross-browser screen/audio recording
 - Local file storage
 - Minimal performance impact
@@ -41,12 +44,13 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 
 ### Recording Sources
 
-| Use Case | Video Source | Audio Source |
-|----------|-------------|--------------|
-| Demo Recording | Screen, Window, or Tab | Microphone + System Audio |
+| Use Case          | Video Source                | Audio Source              |
+| ----------------- | --------------------------- | ------------------------- |
+| Demo Recording    | Screen, Window, or Tab      | Microphone + System Audio |
 | Meeting Recording | None (audio-only) or Camera | Microphone + System Audio |
 
 ### Recording Options
+
 - Screen/Tab/Window selection via native picker
 - Audio source toggle (microphone on/off, system audio on/off)
 - Quality settings (resolution, frame rate)
@@ -54,6 +58,7 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 ### User Interface
 
 #### Toolbar Popup
+
 ```
 ┌─────────────────────┐
 │  SafeCap            │
@@ -66,6 +71,7 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 ```
 
 #### Recording Controls (Floating Widget)
+
 ```
 ┌─────────────────────┐
 │ ⏸  ⏹  ⏺  [00:05:23] │
@@ -73,16 +79,19 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 ```
 
 ### Storage Strategy
+
 - **Primary**: Local filesystem via File System Access API
 - **Fallback**: Download to default downloads folder
 - **Format**: WebM/MP4 for video, WebM/MP3 for audio
 
 ### Browser Support Priority
+
 1. Chrome (primary development target)
 2. Safari
 3. Firefox
 
 ### Performance Requirements
+
 - Recording must not drop frames on target hardware
 - Memory usage < 500MB during recording
 - CPU usage < 15% on modern hardware
@@ -92,11 +101,13 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 ### Transcription
 
 #### Model Strategy
+
 - **Default**: Auto-download lightweight Whisper model (tiny or base)
 - **Size**: < 100MB initial download
 - **Alternative**: Connect to local Ollama/Whisper instance for power users
 
 #### User Onboarding Flow
+
 1. Extension installed
 2. First-time setup wizard
 3. Auto-download recommended model
@@ -104,6 +115,7 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 5. Test recording to validate setup
 
 #### Transcription Features
+
 - Real-time or post-recording transcription
 - Speaker diarization (future)
 - Timestamp alignment
@@ -112,10 +124,12 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 ### Summarization
 
 #### Model Strategy
+
 - Small LLM (< 3B parameters) running locally
 - Alternatively, connect to local Ollama instance
 
 #### Summary Types
+
 - Executive summary (2-3 sentences)
 - Key points (bullet list)
 - Action items
@@ -148,11 +162,13 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 ## Phase 3: Sharing & Cloud Integration
 
 ### Export Options (Phase 1)
+
 - Download video/audio file
 - Download transcript (TXT, SRT, VTT)
 - Download summary (PDF, Markdown)
 
 ### Cloud Storage Integration (Phase 3)
+
 - Google Drive upload
 - YouTube upload (unlisted/private)
 - Shareable link generation
@@ -161,12 +177,14 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 ## UX Requirements
 
 ### Onboarding
+
 1. One-click installation
 2. Automatic model download (with progress)
 3. Test recording to verify setup
 4. Optional: advanced settings for power users
 
 ### Recording Flow
+
 1. Click extension icon
 2. Choose recording mode (Demo/Meeting)
 3. Select sources (screen, audio)
@@ -175,6 +193,7 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 6. Preview and save/export
 
 ### Settings
+
 - Default recording mode
 - Default quality settings
 - Model selection/management
@@ -184,12 +203,14 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 ## Security & Privacy
 
 ### Data Handling
+
 - All recordings stored locally
 - No telemetry or analytics without consent
 - Optional anonymized usage stats
 - Clear data deletion controls
 
 ### Permissions
+
 - `activeTab`: For screen capture
 - `downloads`: For saving recordings
 - `storage`: For settings and metadata
@@ -198,6 +219,7 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 ## Monetization Strategy
 
 ### Licensing
+
 - Open source core under a license that prevents commercial copying
 - Pro features via license key:
   - Advanced AI models
@@ -208,34 +230,38 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 ## Success Metrics
 
 ### Phase 1
+
 - Recording works across major browsers
 - < 5 second time-to-first-recording
 - Zero crashes during recording
 - Export works reliably
 
 ### Phase 2
+
 - Transcription accuracy > 90%
 - Model download < 2 minutes on average connection
 - Summary generation < 30 seconds for 10-min recording
 
 ### Phase 3
+
 - Cloud upload success rate > 95%
 - Share link generation works
 - User retention improves
 
 ## Risks & Mitigations
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Browser API limitations | High | Thorough testing across browsers, graceful degradation |
-| Model performance issues | High | Offer multiple model sizes, local server option |
-| Large model downloads | Medium | Progressive download, clear progress indication |
-| Storage limitations | Medium | Filesystem API, compression options |
-| User confusion about local-only | Low | Clear messaging, transparent UX |
+| Risk                            | Impact | Mitigation                                             |
+| ------------------------------- | ------ | ------------------------------------------------------ |
+| Browser API limitations         | High   | Thorough testing across browsers, graceful degradation |
+| Model performance issues        | High   | Offer multiple model sizes, local server option        |
+| Large model downloads           | Medium | Progressive download, clear progress indication        |
+| Storage limitations             | Medium | Filesystem API, compression options                    |
+| User confusion about local-only | Low    | Clear messaging, transparent UX                        |
 
 ## Development Roadmap
 
 ### Sprint 1-2: Recording Core
+
 - Setup WXT + Vue project
 - Basic recording UI
 - Screen capture implementation
@@ -243,24 +269,28 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 - Local file storage
 
 ### Sprint 3-4: UX Polish
+
 - Floating controls
 - Settings page
 - Error handling
 - Cross-browser testing
 
 ### Sprint 5-6: AI Integration
+
 - Transformers.js integration
 - Whisper model download
 - Transcription pipeline
 - Basic UI for transcripts
 
 ### Sprint 7-8: Summarization
+
 - Summarization model integration
 - Summary generation
 - Export functionality
 - Performance optimization
 
 ### Sprint 9+: Cloud & Sharing
+
 - Export enhancements
 - Google Drive integration
 - YouTube integration
@@ -275,5 +305,5 @@ SafeCap is a browser extension that enables users to record audio/video locally 
 
 ---
 
-*Last Updated: 2024*
-*Status: Draft - Phase 1 Planning*
+_Last Updated: 2024_
+_Status: Draft - Phase 1 Planning_

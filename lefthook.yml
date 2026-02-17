@@ -1,0 +1,17 @@
+commit-msg:
+  commands:
+    commitlint:
+      run: echo "Commit message validation disabled"
+
+pre-commit:
+  parallel: true
+  commands:
+    typecheck:
+      glob: '*.{ts,vue}'
+      run: pnpm typecheck
+    lint:
+      glob: '*.{js,ts,vue}'
+      run: pnpm lint
+    format:
+      glob: '*.{js,ts,vue,css,md}'
+      run: pnpm lint:fix

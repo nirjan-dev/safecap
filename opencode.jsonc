@@ -1,0 +1,44 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "PRD.md",
+    "README.md"
+  ],
+  "command": {
+    "test": {
+      "template": "Run the complete test suite: pnpm typecheck && pnpm lint && pnpm test",
+      "description": "Run type checking, linting, and unit tests"
+    },
+    "test:e2e": {
+      "template": "pnpm test:e2e",
+      "description": "Run Playwright E2E tests"
+    },
+    "lint:fix": {
+      "template": "pnpm lint:fix",
+      "description": "Auto-fix ESLint issues"
+    },
+    "build": {
+      "template": "pnpm build",
+      "description": "Build the browser extension"
+    },
+    "dev": {
+      "template": "pnpm dev",
+      "description": "Start development server"
+    }
+  },
+  "watcher": {
+    "ignore": [
+      ".output",
+      ".wxt",
+      "node_modules",
+      "dist",
+      "*.d.ts"
+    ]
+  },
+  "agent": {
+    "build": {
+      "description": "Primary agent for building and modifying code",
+      "mode": "primary"
+    }
+  }
+}

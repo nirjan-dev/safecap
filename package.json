@@ -24,6 +24,9 @@
     "postinstall": "wxt prepare"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "daisyui": "^5.5.18",
+    "tailwindcss": "^4.1.18",
     "vue": "^3.5.27"
   },
   "devDependencies": {

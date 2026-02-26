@@ -1,30 +1,79 @@
 <script lang="ts" setup>
-import HelloWorld from '@/components/HelloWorld.vue'
+type RecordingStatus = 'inactive' | 'recording' | 'paused'
+
+const recordingState = ref<RecordingStatus>('inactive')
+const isStarting = ref(false)
+
+async function startRecording() {
+  if (recordingState.value !== 'inactive')
+    return
+
+  isStarting.value = true
+  try {
+    const response = await browser.runtime.sendMessage({ type: 'START_RECORDING' })
+    if (response.success) {
+      recordingState.value = 'recording'
+    }
+    else {
+      console.error('Failed to start recording:', response.error)
+    }
+  }
+  finally {
+    isStarting.value = false
+  }
+}
+
+function openRecordings() {
+  browser.tabs.create({ url: browser.runtime.getURL('/recordings.html' as any) })
+}
+
+async function checkState() {
+  const response = await browser.runtime.sendMessage({ type: 'GET_STATE' })
+  if (response) {
+    recordingState.value = response.recordingState
+  }
+}
+
+onMounted(async () => {
+  browser.runtime.onMessage.addListener((message) => {
+    if (message.type === 'STATE_UPDATE') {
+      recordingState.value = message.state.recordingState
+    }
+  })
+  await checkState()
+})
 </script>
 
 <template>
-  <div>
-    <a href="https://wxt.dev" target="_blank">
-      <img src="/wxt.svg" class="logo" alt="WXT logo">
-    </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="@/assets/vue.svg" class="logo vue" alt="Vue logo">
-    </a>
-  </div>
-  <HelloWorld msg="WXT + Vue" />
-</template>
+  <div class="w-64 p-4 bg-base-300">
+    <h1 class="text-2xl font-bold mb-4 text-center">
+      SafeCap
+    </h1>
 
-<style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #54bc4ae0);
-}
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
-}
-</style>
+    <div class="flex flex-col gap-2">
+      <button
+        class="btn btn-primary"
+        :disabled="recordingState !== 'inactive' || isStarting"
+        @click="startRecording"
+      >
+        <span v-if="isStarting" class="loading loading-spinner loading-sm" />
+        <span v-else-if="recordingState === 'inactive'">Record Demo</span>
+        <span v-else>Recording...</span>
+      </button>
+
+      <button
+        class="btn btn-secondary"
+        @click="openRecordings"
+      >
+        My Recordings
+      </button>
+    </div>
+
+    <div v-if="recordingState !== 'inactive'" class="mt-4 text-center">
+      <span class="badge badge-error gap-2">
+        <span class="w-2 h-2 bg-white rounded-full animate-pulse" />
+        Recording in progress
+      </span>
+    </div>
+  </div>
+</template>

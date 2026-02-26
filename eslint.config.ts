@@ -31,6 +31,7 @@ export default antfu(
         defineBackground: 'readonly',
         defineContentScript: 'readonly',
         definePopup: 'readonly',
+        createShadowRootUi: 'readonly',
       },
     },
     rules: {

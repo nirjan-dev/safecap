@@ -1,13 +1,9 @@
 <script lang="ts" setup>
+import type { Recording as StorageRecording } from '@/src/utils/storage'
 import { onMounted, ref } from 'vue'
+import { recordingsStorage } from '@/src/utils/storage'
 
-interface Recording {
-  id: string
-  blob: Blob
-  name: string
-  createdAt: number
-  duration: number
-}
+type Recording = Omit<StorageRecording, 'blob'> & { blob: Blob }
 
 const recordings = ref<Recording[]>([])
 const selectedRecording = ref<Recording | null>(null)
@@ -34,9 +30,8 @@ function base64ToBlob(base64: string, type: string): Blob {
 }
 
 async function loadRecordings() {
-  const response = await browser.runtime.sendMessage({ type: 'GET_RECORDINGS' })
-  const rawRecordings = response || []
-  recordings.value = rawRecordings.map((r: any) => ({
+  const rawRecordings = await recordingsStorage.getValue()
+  recordings.value = rawRecordings.map(r => ({
     ...r,
     blob: base64ToBlob(r.blob, 'video/webm'),
   }))
@@ -70,7 +65,8 @@ async function downloadRecording(recording: Recording) {
 }
 
 async function deleteRecording(id: string) {
-  await browser.runtime.sendMessage({ type: 'DELETE_RECORDING', id })
+  const current = await recordingsStorage.getValue()
+  await recordingsStorage.setValue(current.filter(r => r.id !== id))
   await loadRecordings()
 
   if (selectedRecording.value?.id === id) {

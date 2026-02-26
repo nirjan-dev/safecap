@@ -1,3 +1,5 @@
+import { recordingsStorage } from '@/src/utils/storage'
+
 export default defineBackground(() => {
   const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html' as const
   let creatingOffscreen: Promise<void> | null = null
@@ -36,22 +38,19 @@ export default defineBackground(() => {
   }
 
   async function saveRecording(recording: { id: string, name: string, createdAt: number, duration: number, blob: string }): Promise<void> {
-    const result = await browser.storage.session.get('recordings') as { recordings?: any[] }
-    const recordings = result.recordings || []
+    const recordings = await recordingsStorage.getValue()
     recordings.push(recording)
-    await browser.storage.session.set({ recordings })
+    await recordingsStorage.setValue(recordings)
   }
 
   async function getRecordings(): Promise<any[]> {
-    const result = await browser.storage.session.get('recordings') as { recordings?: any[] }
-    return result.recordings || []
+    return await recordingsStorage.getValue()
   }
 
   async function deleteRecording(id: string): Promise<void> {
-    const result = await browser.storage.session.get('recordings') as { recordings?: any[] }
-    const recordings = result.recordings || []
-    const filtered = recordings.filter((r: any) => r.id !== id)
-    await browser.storage.session.set({ recordings: filtered })
+    const recordings = await recordingsStorage.getValue()
+    const filtered = recordings.filter(r => r.id !== id)
+    await recordingsStorage.setValue(filtered)
   }
 
   browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {

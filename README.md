@@ -1,138 +1,66 @@
 # SafeCap
 
-A browser extension for local-first audio/video recording with on-device AI transcription. Record your screen, meetings, and demos without sending your data to the cloud.
+**The Private Recording Studio for your Browser.**
 
-## Philosophy
+SafeCap is a local-first browser extension for recording high-quality demos and meetings. No cloud, no accounts, and no AI training on your data—everything stays on your machine.
 
-- **Local-first, privacy-first** - All processing happens on device
-- **Dead-simple UX** - Minimal friction for users
-- **Performance-focused** - Efficient recording without lag
-- **Open source** - AGPL/Elastic license with Pro features
+## Why SafeCap?
+
+- **Privacy-First**: Your recordings never touch our servers. Zero tracking.
+- **No Subscriptions**: Pay once for Pro features, or use the generous Free tier forever.
+- **High Performance**: Optimized for 4K recording without dropping frames.
+- **Professional Tools**: Built-in annotations, mouse highlights, and smart organization.
 
 ## Use Cases
 
-### 1. Demo Recording (Loom Alternative)
+- **Product Demos**: Record your web apps with professional annotations.
+- **Meeting Vault**: Save your Google Meet/Zoom/Teams meetings locally for archive.
+- **Bug Reports**: Capture technical issues with console logs and system info (planned).
 
-Record screen + audio with automatic transcription and summaries for easy sharing.
+## Project Philosophy
 
-### 2. Meeting Recording (Granola Alternative)
-
-Record audio from Zoom/Meet/Teams with searchable transcripts.
-
-## Technology Stack
-
-- **Framework**: [WXT](https://wxt.dev/) - Browser extension framework
-- **Frontend**: Vue 3 + TypeScript
-- **Styling**: Tailwind CSS + Daisy UI
-- **Package Manager**: pnpm
-- **Testing**: Vitest (unit) + Playwright (e2e)
-- **Linting**: ESLint with @antfu/eslint-config
-- **Git Hooks**: lefthook
+- **Data Ownership**: You own the bytes. We don't even have a "Upload" button by default.
+- **Transparency**: Our source code is public for anyone to audit.
+- **Simplicity**: One-click to start, one-click to finish. No friction.
 
 ## Development
 
 ### Prerequisites
 
-- Node.js (see `.nvmrc` for version)
+- Node.js (see `.nvmrc`)
 - pnpm
 
-### Installation
+### Quick Start
 
 ```bash
 pnpm install
-```
-
-### Development Commands
-
-```bash
-# Start development server
 pnpm dev
-
-# Build for production
-pnpm build
-
-# Build for Firefox
-pnpm build:firefox
-
-# Create distribution zip
-pnpm zip
 ```
 
-### Code Quality
+### Technology Stack
 
-```bash
-# Type checking
-pnpm typecheck
-pnpm typecheck:watch
+- **Framework**: [WXT](https://wxt.dev/) - Browser extension framework
+- **Frontend**: Vue 3 + TypeScript
+- **Styling**: Tailwind CSS + Daisy UI
+- **Package Manager**: pnpm
 
-# Linting
-pnpm lint
-pnpm lint:fix
+## Licensing
 
-# Unit tests
-pnpm test
-pnpm test:watch
-pnpm test:coverage
+SafeCap is licensed under the **Polyform Shield License 1.0.0**.
 
-# E2E tests
-pnpm test:e2e
-pnpm test:e2e:ui
-```
+- You are free to read, modify, and use the code for personal/internal use.
+- You may **not** use the code to create a competing product or service.
+- See the [LICENSE](LICENSE) file for full details.
 
-### Pre-commit Hooks
+Required Notice: Copyright (C) Nirjan Khadka.
 
-Git hooks are configured via lefthook to automatically run:
+## Roadmap
 
-- TypeScript type checking
-- ESLint linting
-- Auto-formatting
+1. **Phase 1**: High-quality audio mixing and core recording stability.
+2. **Phase 2**: Real-time annotations and professional visual feedback (Mouse/Keys).
+3. **Phase 3**: Local MP4/GIF conversion and smart library organization.
+4. **Phase 4**: Pro Licensing and official store release.
 
-## Project Structure
+---
 
-```
-├── entrypoints/          # Browser extension entry points
-│   ├── background.ts     # Background script
-│   ├── content.ts        # Content script
-│   └── popup/            # Popup UI
-│       ├── App.vue
-│       ├── main.ts
-│       └── style.css
-├── components/           # Shared Vue components
-├── assets/              # Static assets
-├── tests/
-│   ├── unit/            # Vitest unit tests
-│   └── e2e/             # Playwright E2E tests
-├── .wxt/                # Generated WXT types (auto-generated)
-├── .output/             # Build output (auto-generated)
-├── eslint.config.ts     # ESLint configuration
-├── vitest.config.ts     # Vitest configuration
-├── playwright.config.ts # Playwright configuration
-└── lefthook.yml         # Git hooks configuration
-```
-
-## Browser Support
-
-- Chrome (primary)
-- Firefox
-- Safari (planned)
-
-## License
-
-AGPL v3
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests: `pnpm typecheck && pnpm lint && pnpm test`
-5. Submit a pull request
-
-## VS Code Setup
-
-Recommended extensions:
-
-- Vue.volar (Vue 3 support)
-- dbaeumer.vscode-eslint (ESLint integration)
-
-Settings are pre-configured in `.vscode/settings.json` for auto-fix on save.
+Built with ❤️ for privacy-conscious developers.

@@ -2,308 +2,88 @@
 
 ## Overview
 
-SafeCap is a browser extension that enables users to record audio/video locally and transcribe/summarize recordings using on-device AI models. The extension prioritizes privacy, performance, and simplicity.
+SafeCap is a browser-first, privacy-focused recording studio. It enables users to record high-quality demos and meetings locally without their data ever touching a server or being used for AI training. SafeCap prioritizes professional output, extreme performance, and data ownership.
 
 ## Philosophy
 
-- **Local First**: All processing happens on-device. No data leaves the user's machine.
-- **Privacy & Security**: User recordings and transcripts never touch external servers
-- **Performance**: Minimal impact on system resources and the active web application
-- **Dead-Simple UX**: Intuitive interface requiring minimal setup
+- **Local-First, Data Ownership**: All recordings stay on the user's machine. No cloud storage, no accounts required.
+- **Privacy by Design**: No telemetry, no AI training on user data, no external API calls for core functionality.
+- **Professional Polish**: Tools that make your demos look better (annotations, high FPS, clear audio).
+- **Simple Pricing**: One-time payment for Pro features. No recurring "rent" for your own data.
 
 ## Use Cases
 
-### 1. Demo Recording (Loom Alternative)
+### 1. Professional Demo Recording (The "Anti-Loom")
 
-- Record screen + audio for product demos, tutorials, bug reports
-- Export with transcripts, timestamps, and summaries
-- Share via exported files or cloud storage (future)
+- Record web apps + microphone audio for product demos, tutorials, and bug reports.
+- Annotate in real-time (arrows, highlights) to guide the viewer.
+- Export as high-quality MP4/WebM for sharing on Slack, GitHub, or Jira.
 
-### 2. Meeting Recording (Granola Alternative)
+### 2. Private Meeting Archive (The "Meeting Vault")
 
-- Record audio/video from Zoom, Meet, Teams, etc.
-- Generate transcripts and summaries for later review
-- Manual activation required
+- Record web-based meetings (Zoom, Meet, Teams) with both system and microphone audio.
+- Organize recordings by tab title or calendar event.
+- Maintain a local, searchable library of historical meetings.
 
 ## Technical Stack
 
 - **Framework**: WXT (Web Extension Toolkit) with Vue 3
 - **Styling**: Tailwind CSS + Daisy UI
 - **Language**: TypeScript
-- **Testing**: Vitest (unit), Playwright (e2e)
-- **AI/ML**: Transformers.js / ONNX Runtime for local models
+- **Processing**: `ffmpeg.wasm` for local MP4/GIF conversion
+- **Storage**: Local browser storage for metadata, local filesystem for recordings
 
-## Phase 1: Core Recording (MVP)
+## Monetization Strategy (Tiered Model)
 
-### Goals
+### Free Version
 
-- Cross-browser screen/audio recording
-- Local file storage
-- Minimal performance impact
-- Simple, intuitive UX
+- Unlimited high-quality WebM recordings (up to 4K).
+- Tab, Window, and Screen recording.
+- Microphone + System audio mixing.
+- Basic local library.
+- Small "Recorded with SafeCap" watermark (optional/tasteful).
 
-### Recording Sources
+### Pro Version ($29 One-Time)
 
-| Use Case          | Video Source                | Audio Source              |
-| ----------------- | --------------------------- | ------------------------- |
-| Demo Recording    | Screen, Window, or Tab      | Microphone + System Audio |
-| Meeting Recording | None (audio-only) or Camera | Microphone + System Audio |
+- **Watermark Removal**: Clean, unbranded professional output.
+- **On-Screen Annotations**: Drawing tools (Pen, Arrows, Rectangles) during recording.
+- **Power Export**: Local conversion to MP4 and GIF (via ffmpeg.wasm).
+- **Visual Feedback**: Mouse click ripple effects and keyboard shortcut overlays.
+- **Smart Organization**: Automatic naming and folder-based organization.
 
-### Recording Options
+## Roadmap
 
-- Screen/Tab/Window selection via native picker
-- Audio source toggle (microphone on/off, system audio on/off)
-- Quality settings (resolution, frame rate)
+### Phase 1: Core Foundation (Current)
 
-### User Interface
+- [x] High-quality screen/tab recording.
+- [ ] Rock-solid Mic + System audio mixing.
+- [ ] Polyform Shield Licensing integration.
+- [ ] Security & Privacy manifesto on the landing page.
 
-#### Toolbar Popup
+### Phase 2: Professional Production (The "Pro" Value)
 
-```
-┌─────────────────────┐
-│  SafeCap            │
-├─────────────────────┤
-│ [Record Demo]       │
-│ [Record Meeting]    │
-│ [My Recordings]     │
-│ [Settings]          │
-└─────────────────────┘
-```
+- [ ] **Annotations Engine**: Canvas overlay for real-time drawing.
+- [ ] **Mouse & Key Overlays**: Highlighting user actions visually.
+- [ ] **Subtle Watermarking**: Implementation for the free tier.
 
-#### Recording Controls (Floating Widget)
+### Phase 3: Workflow & Export
 
-```
-┌─────────────────────┐
-│ ⏸  ⏹  ⏺  [00:05:23] │
-└─────────────────────┘
-```
+- [ ] **MP4/GIF Conversion**: Integrating `ffmpeg.wasm` for local processing.
+- [ ] **Smart Naming**: Auto-naming files based on Tab Title/URL.
+- [ ] **The Meeting Vault**: Searchable recording library with tagging.
 
-### Storage Strategy
+### Phase 4: Licensing & Distribution
 
-- **Primary**: Local filesystem via File System Access API
-- **Fallback**: Download to default downloads folder
-- **Format**: WebM/MP4 for video, WebM/MP3 for audio
-
-### Browser Support Priority
-
-1. Chrome (primary development target)
-2. Safari
-3. Firefox
-
-### Performance Requirements
-
-- Recording must not drop frames on target hardware
-- Memory usage < 500MB during recording
-- CPU usage < 15% on modern hardware
-
-## Phase 2: AI Features
-
-### Transcription
-
-#### Model Strategy
-
-- **Default**: Auto-download lightweight Whisper model (tiny or base)
-- **Size**: < 100MB initial download
-- **Alternative**: Connect to local Ollama/Whisper instance for power users
-
-#### User Onboarding Flow
-
-1. Extension installed
-2. First-time setup wizard
-3. Auto-download recommended model
-4. Transparent progress indication
-5. Test recording to validate setup
-
-#### Transcription Features
-
-- Real-time or post-recording transcription
-- Speaker diarization (future)
-- Timestamp alignment
-- Multiple language support
-
-### Summarization
-
-#### Model Strategy
-
-- Small LLM (< 3B parameters) running locally
-- Alternatively, connect to local Ollama instance
-
-#### Summary Types
-
-- Executive summary (2-3 sentences)
-- Key points (bullet list)
-- Action items
-- Full transcript with searchable text
-
-### Output Format
-
-```json
-{
-  "recording": {
-    "filename": "demo_2024-01-15.webm",
-    "duration": 300,
-    "createdAt": "2024-01-15T10:30:00Z"
-  },
-  "transcript": [
-    {
-      "start": 0,
-      "end": 5.2,
-      "text": "Hello everyone, welcome to this demo"
-    }
-  ],
-  "summary": {
-    "executive": "Overview of new feature X",
-    "keyPoints": ["Point 1", "Point 2"],
-    "actionItems": ["Action 1", "Action 2"]
-  }
-}
-```
-
-## Phase 3: Sharing & Cloud Integration
-
-### Export Options (Phase 1)
-
-- Download video/audio file
-- Download transcript (TXT, SRT, VTT)
-- Download summary (PDF, Markdown)
-
-### Cloud Storage Integration (Phase 3)
-
-- Google Drive upload
-- YouTube upload (unlisted/private)
-- Shareable link generation
-- Local-first: always keep original on device
-
-## UX Requirements
-
-### Onboarding
-
-1. One-click installation
-2. Automatic model download (with progress)
-3. Test recording to verify setup
-4. Optional: advanced settings for power users
-
-### Recording Flow
-
-1. Click extension icon
-2. Choose recording mode (Demo/Meeting)
-3. Select sources (screen, audio)
-4. Record with floating controls
-5. Stop recording
-6. Preview and save/export
-
-### Settings
-
-- Default recording mode
-- Default quality settings
-- Model selection/management
-- Keyboard shortcuts (future)
-- Auto-delete recordings after N days
+- [ ] **Offline License Verification**: ED25519 signed-token system.
+- [ ] **One-Click Export**: Optional hooks for local NAS or Google Drive (user-owned).
 
 ## Security & Privacy
 
-### Data Handling
-
-- All recordings stored locally
-- No telemetry or analytics without consent
-- Optional anonymized usage stats
-- Clear data deletion controls
-
-### Permissions
-
-- `activeTab`: For screen capture
-- `downloads`: For saving recordings
-- `storage`: For settings and metadata
-- `offscreen`: For background processing
-
-## Monetization Strategy
-
-### Licensing
-
-- Open source core under a license that prevents commercial copying
-- Pro features via license key:
-  - Advanced AI models
-  - Cloud storage integration
-  - Priority support
-  - Custom branding
-
-## Success Metrics
-
-### Phase 1
-
-- Recording works across major browsers
-- < 5 second time-to-first-recording
-- Zero crashes during recording
-- Export works reliably
-
-### Phase 2
-
-- Transcription accuracy > 90%
-- Model download < 2 minutes on average connection
-- Summary generation < 30 seconds for 10-min recording
-
-### Phase 3
-
-- Cloud upload success rate > 95%
-- Share link generation works
-- User retention improves
-
-## Risks & Mitigations
-
-| Risk                            | Impact | Mitigation                                             |
-| ------------------------------- | ------ | ------------------------------------------------------ |
-| Browser API limitations         | High   | Thorough testing across browsers, graceful degradation |
-| Model performance issues        | High   | Offer multiple model sizes, local server option        |
-| Large model downloads           | Medium | Progressive download, clear progress indication        |
-| Storage limitations             | Medium | Filesystem API, compression options                    |
-| User confusion about local-only | Low    | Clear messaging, transparent UX                        |
-
-## Development Roadmap
-
-### Sprint 1-2: Recording Core
-
-- Setup WXT + Vue project
-- Basic recording UI
-- Screen capture implementation
-- Audio capture implementation
-- Local file storage
-
-### Sprint 3-4: UX Polish
-
-- Floating controls
-- Settings page
-- Error handling
-- Cross-browser testing
-
-### Sprint 5-6: AI Integration
-
-- Transformers.js integration
-- Whisper model download
-- Transcription pipeline
-- Basic UI for transcripts
-
-### Sprint 7-8: Summarization
-
-- Summarization model integration
-- Summary generation
-- Export functionality
-- Performance optimization
-
-### Sprint 9+: Cloud & Sharing
-
-- Export enhancements
-- Google Drive integration
-- YouTube integration
-- Share link generation
-
-## Open Questions
-
-- Specific license choice (AGPL? Elastic?)
-- Exact model specifications for default download
-- Cloud storage provider prioritization
-- Analytics and telemetry strategy
+- **No Server**: The extension performs zero "phoning home" except for a one-time license activation check.
+- **Auditable**: Public source code under the Polyform Shield license.
+- **Data Deletion**: Easy "Nuclear Option" to wipe all local data in one click.
 
 ---
 
-_Last Updated: 2024_
-_Status: Draft - Phase 1 Planning_
+_Last Updated: February 2026_
+_Status: Phase 1 (Core Polish)_

@@ -4,6 +4,9 @@ interface Recording {
   name: string
   createdAt: number
   duration: number
+  size: number
+  tabTitle?: string
+  tabUrl?: string
 }
 
 type RecordingStatus = 'inactive' | 'recording' | 'paused'
@@ -13,6 +16,7 @@ let chunks: Blob[] = []
 let recordingStartTime = 0
 let pausedDuration = 0
 let currentRecordingId = ''
+let currentTabInfo: { title?: string, url?: string } | undefined
 
 const state = {
   recordingState: 'inactive' as RecordingStatus,
@@ -21,6 +25,13 @@ const state = {
 
 function generateId(): string {
   return `rec_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+}
+
+function generateRecordingName(tabTitle?: string): string {
+  if (tabTitle) {
+    return tabTitle
+  }
+  return `Recording ${new Date(recordingStartTime).toLocaleString()}`
 }
 
 async function startRecording(): Promise<{ success: boolean, error?: string }> {
@@ -56,12 +67,17 @@ async function startRecording(): Promise<{ success: boolean, error?: string }> {
       const blob = new Blob(chunks, { type: 'video/webm' })
       const duration = (Date.now() - recordingStartTime - pausedDuration) / 1000
 
+      const name = generateRecordingName(currentTabInfo?.title)
+
       const recording: Recording = {
         id: currentRecordingId,
         blob,
-        name: `Recording ${new Date(recordingStartTime).toLocaleString()}`,
+        name,
         createdAt: recordingStartTime,
         duration,
+        size: blob.size,
+        tabTitle: currentTabInfo?.title,
+        tabUrl: currentTabInfo?.url,
       }
 
       await sendRecordingToBackground(recording)
@@ -132,6 +148,9 @@ async function sendRecordingToBackground(recording: Recording): Promise<void> {
       name: recording.name,
       createdAt: recording.createdAt,
       duration: recording.duration,
+      size: recording.size,
+      tabTitle: recording.tabTitle,
+      tabUrl: recording.tabUrl,
       blob: base64,
     },
   })
@@ -174,6 +193,7 @@ function broadcastState() {
 browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   switch (message.type) {
     case 'START_RECORDING':
+      currentTabInfo = message.tabInfo
       startRecording().then(sendResponse)
       return true
     case 'STOP_RECORDING':

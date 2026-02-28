@@ -5,6 +5,9 @@ export interface Recording {
   name: string
   createdAt: number
   duration: number
+  size: number
+  tabTitle?: string
+  tabUrl?: string
   blob: string
 }
 

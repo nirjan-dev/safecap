@@ -10,7 +10,15 @@ async function startRecording() {
 
   isStarting.value = true
   try {
-    const response = await browser.runtime.sendMessage({ type: 'START_RECORDING' })
+    const [tab] = await browser.tabs.query({ active: true, currentWindow: true })
+    const tabInfo = tab?.title && tab?.url
+      ? { title: tab.title, url: tab.url }
+      : undefined
+
+    const response = await browser.runtime.sendMessage({
+      type: 'START_RECORDING',
+      tabInfo,
+    })
     if (response.success) {
       recordingState.value = 'recording'
     }

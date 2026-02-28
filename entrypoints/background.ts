@@ -5,7 +5,7 @@ export default defineBackground(() => {
   // NOTE: Storage items MUST be defined inside the callback, not imported from external modules.
   // WXT's build-time permission scanner only detects storage usage within defineBackground's callback body.
   // See: https://github.com/wxt-dev/wxt/issues/371
-  const recordingsStorage = storage.defineItem<{ id: string, name: string, createdAt: number, duration: number, blob: string }[]>('local:recordings', {
+  const recordingsStorage = storage.defineItem<Recording[]>('local:recordings', {
     fallback: [],
     version: 1,
   })
@@ -46,19 +46,19 @@ export default defineBackground(() => {
     }
   }
 
-  async function saveRecording(recording: { id: string, name: string, createdAt: number, duration: number, blob: string }): Promise<void> {
+  async function saveRecording(recording: Recording): Promise<void> {
     const recordings = await recordingsStorage.getValue()
     recordings.push(recording)
     await recordingsStorage.setValue(recordings)
   }
 
-  async function getRecordings(): Promise<any[]> {
+  async function getRecordings(): Promise<Recording[]> {
     return await recordingsStorage.getValue()
   }
 
   async function deleteRecording(id: string): Promise<void> {
     const recordings = await recordingsStorage.getValue()
-    const filtered = recordings.filter((r: Recording) => r.id !== id)
+    const filtered = recordings.filter(r => r.id !== id)
     await recordingsStorage.setValue(filtered)
   }
 

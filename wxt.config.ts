@@ -16,4 +16,7 @@ export default defineConfig({
     baseIconPath: './assets/icon.svg',
     developmentIndicator: 'overlay',
   },
+  webExt: {
+    chromiumArgs: ['--user-data-dir=./.wxt/chrome-data'],
+  },
 })

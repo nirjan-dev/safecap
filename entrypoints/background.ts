@@ -1,6 +1,15 @@
-import { recordingsStorage } from '@/src/utils/storage'
+import type { Recording } from '@/src/utils/storage'
+import { storage } from '@wxt-dev/storage'
 
 export default defineBackground(() => {
+  // NOTE: Storage items MUST be defined inside the callback, not imported from external modules.
+  // WXT's build-time permission scanner only detects storage usage within defineBackground's callback body.
+  // See: https://github.com/wxt-dev/wxt/issues/371
+  const recordingsStorage = storage.defineItem<{ id: string, name: string, createdAt: number, duration: number, blob: string }[]>('local:recordings', {
+    fallback: [],
+    version: 1,
+  })
+
   const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html' as const
   let creatingOffscreen: Promise<void> | null = null
 
@@ -49,7 +58,7 @@ export default defineBackground(() => {
 
   async function deleteRecording(id: string): Promise<void> {
     const recordings = await recordingsStorage.getValue()
-    const filtered = recordings.filter(r => r.id !== id)
+    const filtered = recordings.filter((r: Recording) => r.id !== id)
     await recordingsStorage.setValue(filtered)
   }
 

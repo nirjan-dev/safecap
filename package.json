@@ -36,6 +36,7 @@
     "@vitest/coverage-v8": "^4.0.18",
     "@vue/test-utils": "^2.4.6",
     "@wxt-dev/module-vue": "^1.0.3",
+    "@wxt-dev/storage": "^1.2.8",
     "eslint": "^10.0.0",
     "eslint-plugin-format": "^1.4.0",
     "happy-dom": "^20.6.1",

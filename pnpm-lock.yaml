@@ -39,6 +39,9 @@ importers:
       '@wxt-dev/module-vue':
         specifier: ^1.0.3
         version: 1.0.3(vite@7.3.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.2))(vue@3.5.28(typescript@5.9.3))(wxt@0.20.17(@types/node@25.2.3)(eslint@10.0.0(jiti@2.6.1))(jiti@2.6.1)(lightningcss@1.30.2)(rollup@4.57.1)(yaml@2.8.2))
+      '@wxt-dev/storage':
+        specifier: ^1.2.8
+        version: 1.2.8
       eslint:
         specifier: ^10.0.0
         version: 10.0.0(jiti@2.6.1)
@@ -977,13 +980,16 @@ packages:
   '@wxt-dev/browser@0.1.36':
     resolution: {integrity: sha512-48Wn8pItPNg7rCdy10c73z6Alto0z5xkBZohPApKK4/uC8C70j9tJRlaxXdHF/u8+SMZGdrvYtz16oLrOxBu6g==}
 
+  '@wxt-dev/browser@0.1.37':
+    resolution: {integrity: sha512-I32XWCNRy2W6UgbaVXz8BHGBGtm8urGRRBrcNLagUBXTrBi7wCE6zWePUvvK+nUl7qUCZ7iQ1ufdP0c1DEWisw==}
+
   '@wxt-dev/module-vue@1.0.3':
     resolution: {integrity: sha512-xUNygcj4w0b1MzQGOQIp5V2ZwFE4y+5AwKPi/IPKyo2aNeFVJTfItIxzWI5vTj7031WCLzHgQrrBRS5C63D5iw==}
     peerDependencies:
       wxt: '>=0.19.16'
 
-  '@wxt-dev/storage@1.2.7':
-    resolution: {integrity: sha512-+rfRmfF2Wd6knXSFfgjLHelKEVnlryI/UG2/gNbO9U/KZJtSvo8QkGSJ1iJQ7jLYCYD+oYCzMZdL7D4BJLCUkw==}
+  '@wxt-dev/storage@1.2.8':
+    resolution: {integrity: sha512-GWCFKgF5+d7eslOxUDFC70ypA9njupmJb1nQM8uZoX0J3sWT2BO5xJLzb1sYahWAfID9p2BMtnUBN1lkWxPsbQ==}
 
   abbrev@2.0.0:
     resolution: {integrity: sha512-6/mh1E2u2YgEsCHdY0Yx5oW+61gZU+1vXaoiHHrpKeuRNNgFvS+/jrwHiQhB5apAf5oB7UB7E19ol2R2LKH8hQ==}
@@ -4238,6 +4244,11 @@ snapshots:
       '@types/filesystem': 0.0.36
       '@types/har-format': 1.2.16
 
+  '@wxt-dev/browser@0.1.37':
+    dependencies:
+      '@types/filesystem': 0.0.36
+      '@types/har-format': 1.2.16
+
   '@wxt-dev/module-vue@1.0.3(vite@7.3.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.2))(vue@3.5.28(typescript@5.9.3))(wxt@0.20.17(@types/node@25.2.3)(eslint@10.0.0(jiti@2.6.1))(jiti@2.6.1)(lightningcss@1.30.2)(rollup@4.57.1)(yaml@2.8.2))':
     dependencies:
       '@vitejs/plugin-vue': 6.0.4(vite@7.3.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.2))(vue@3.5.28(typescript@5.9.3))
@@ -4246,9 +4257,9 @@ snapshots:
       - vite
       - vue
 
-  '@wxt-dev/storage@1.2.7':
+  '@wxt-dev/storage@1.2.8':
     dependencies:
-      '@wxt-dev/browser': 0.1.36
+      '@wxt-dev/browser': 0.1.37
       async-mutex: 0.5.0
       dequal: 2.0.3
 
@@ -6794,7 +6805,7 @@ snapshots:
       '@webext-core/isolated-element': 1.1.3
       '@webext-core/match-patterns': 1.0.3
       '@wxt-dev/browser': 0.1.36
-      '@wxt-dev/storage': 1.2.7
+      '@wxt-dev/storage': 1.2.8
       async-mutex: 0.5.0
       c12: 3.3.3(magicast@0.5.2)
       cac: 6.7.14

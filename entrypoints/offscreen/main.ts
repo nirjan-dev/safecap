@@ -139,30 +139,54 @@ function getState(): typeof state {
 }
 
 async function sendRecordingToBackground(recording: Recording): Promise<void> {
-  const base64 = await blobToBase64(recording.blob)
+  const metadata = {
+    id: recording.id,
+    name: recording.name,
+    createdAt: recording.createdAt,
+    duration: recording.duration,
+    size: recording.size,
+    tabTitle: recording.tabTitle,
+    tabUrl: recording.tabUrl,
+  }
 
   await browser.runtime.sendMessage({
-    type: 'SAVE_RECORDING',
-    recording: {
+    type: 'STREAM_START',
+    id: recording.id,
+    metadata,
+  })
+
+  const stream = recording.blob.stream()
+  const reader = stream.getReader()
+
+  while (true) {
+    const { done, value } = await reader.read()
+
+    if (done) {
+      break
+    }
+
+    const base64 = uint8ArrayToBase64(value)
+
+    await browser.runtime.sendMessage({
+      type: 'STREAM_CHUNK',
       id: recording.id,
-      name: recording.name,
-      createdAt: recording.createdAt,
-      duration: recording.duration,
-      size: recording.size,
-      tabTitle: recording.tabTitle,
-      tabUrl: recording.tabUrl,
-      blob: base64,
-    },
+      chunk: base64,
+    })
+  }
+
+  await browser.runtime.sendMessage({
+    type: 'STREAM_END',
+    id: recording.id,
   })
 }
 
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onloadend = () => resolve(reader.result as string)
-    reader.onerror = reject
-    reader.readAsDataURL(blob)
-  })
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const len = bytes.byteLength
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
 }
 
 let durationTimer: number | null = null

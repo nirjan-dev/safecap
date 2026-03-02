@@ -1,16 +1,19 @@
 <script lang="ts" setup>
 import type { Recording as StorageRecording } from '@/src/utils/storage'
 import { Icon } from '@iconify/vue'
-import { onMounted, ref } from 'vue'
-import { recordingsStorage } from '@/src/utils/storage'
+import { onMounted, ref, shallowRef } from 'vue'
+import { getRecording, recordingsStorage } from '@/src/utils/storage'
 
-type Recording = Omit<StorageRecording, 'blob'> & { blob: Blob }
+type Recording = Omit<StorageRecording, 'blob'>
+type RecordingWithBlob = Recording & { blob: Blob }
 
-const recordings = ref<Recording[]>([])
-const selectedRecording = ref<Recording | null>(null)
+const recordings = shallowRef<Recording[]>([])
+const selectedRecording = ref<RecordingWithBlob | null>(null)
 const videoUrl = ref<string | null>(null)
 const dialogRef = ref<HTMLDialogElement | null>(null)
 const loading = ref(true)
+const loadingRecordingId = ref<string | null>(null)
+const errorMessage = ref<string | null>(null)
 
 function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60)
@@ -46,7 +49,7 @@ function formatRelativeTime(timestamp: number): string {
 }
 
 function base64ToBlob(base64: string, type: string): Blob {
-  const byteString = atob(base64.split(',')[1])
+  const byteString = atob(base64.split(',')[1] || base64)
   const arrayBuffer = new ArrayBuffer(byteString.length)
   const uint8Array = new Uint8Array(arrayBuffer)
   for (let i = 0; i < byteString.length; i++) {
@@ -58,24 +61,54 @@ function base64ToBlob(base64: string, type: string): Blob {
 async function loadRecordings() {
   loading.value = true
   const rawRecordings = await recordingsStorage.getValue()
+
   recordings.value = rawRecordings
     .map(r => ({
-      ...r,
-      blob: base64ToBlob(r.blob, 'video/webm'),
+      id: r.id,
+      name: r.name,
+      createdAt: r.createdAt,
+      duration: r.duration,
+      size: r.size,
+      tabTitle: r.tabTitle,
+      tabUrl: r.tabUrl,
     }))
     .sort((a, b) => b.createdAt - a.createdAt)
   loading.value = false
 }
 
-function playRecording(recording: Recording) {
+async function playRecording(recording: Recording) {
+  if (loadingRecordingId.value)
+    return
+
   if (videoUrl.value) {
     URL.revokeObjectURL(videoUrl.value)
   }
-  videoUrl.value = URL.createObjectURL(recording.blob)
-  selectedRecording.value = recording
-  setTimeout(() => {
-    dialogRef.value?.showModal()
-  }, 0)
+
+  loadingRecordingId.value = recording.id
+  errorMessage.value = null
+
+  try {
+    const fullRecording = await getRecording(recording.id)
+
+    if (!fullRecording) {
+      errorMessage.value = 'Recording not found'
+      return
+    }
+
+    const blob = base64ToBlob(fullRecording.blob, 'video/webm')
+    videoUrl.value = URL.createObjectURL(blob)
+    selectedRecording.value = { ...recording, blob }
+    setTimeout(() => {
+      dialogRef.value?.showModal()
+    }, 0)
+  }
+  catch (err) {
+    errorMessage.value = `Failed to load recording: ${err}`
+    console.error('Failed to load recording:', err)
+  }
+  finally {
+    loadingRecordingId.value = null
+  }
 }
 
 function closePlayer() {
@@ -88,7 +121,13 @@ function closePlayer() {
 }
 
 async function downloadRecording(recording: Recording) {
-  const url = URL.createObjectURL(recording.blob)
+  const fullRecording = await getRecording(recording.id)
+  if (!fullRecording) {
+    errorMessage.value = 'Recording not found'
+    return
+  }
+  const blob = base64ToBlob(fullRecording.blob, 'video/webm')
+  const url = URL.createObjectURL(blob)
   const filename = `${recording.name.replace(/[^a-z0-9]/gi, '_')}.webm`
 
   await browser.downloads.download({
@@ -96,6 +135,8 @@ async function downloadRecording(recording: Recording) {
     filename,
     saveAs: true,
   })
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 async function deleteRecording(id: string) {
@@ -199,10 +240,13 @@ onMounted(() => {
               <div class="flex flex-col gap-2">
                 <button
                   class="btn btn-primary btn-sm"
+                  :disabled="loadingRecordingId !== null"
                   @click="playRecording(recording)"
                 >
-                  <Icon icon="lucide:play" class="w-4 h-4" />
-                  Play
+                  <span v-if="loadingRecordingId === recording.id" class="loading loading-spinner loading-xs" />
+                  <Icon v-else icon="lucide:play" class="w-4 h-4" />
+                  <span v-if="loadingRecordingId === recording.id">Loading...</span>
+                  <span v-else>Play</span>
                 </button>
                 <div class="flex gap-1">
                   <button

@@ -1,5 +1,5 @@
 import type { Recording } from '@/src/utils/storage'
-import { storage } from '@wxt-dev/storage'
+import { deleteRecording as deleteRecordingFromStorage, migrateRecordingsToSeparateBlobs, recordingsStorage, saveRecording as saveRecordingToStorage } from '@/src/utils/storage'
 
 interface StreamingSession {
   chunks: Uint8Array[]
@@ -10,10 +10,7 @@ export default defineBackground(() => {
   // NOTE: Storage items MUST be defined inside the callback, not imported from external modules.
   // WXT's build-time permission scanner only detects storage usage within defineBackground's callback body.
   // See: https://github.com/wxt-dev/wxt/issues/371
-  const recordingsStorage = storage.defineItem<Recording[]>('local:recordings', {
-    fallback: [],
-    version: 1,
-  })
+  const recordingsStorageLocal = recordingsStorage
 
   const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html' as const
   let creatingOffscreen: Promise<void> | null = null
@@ -72,20 +69,19 @@ export default defineBackground(() => {
   }
 
   async function saveRecording(recording: Recording): Promise<void> {
-    const recordings = await recordingsStorage.getValue()
-    recordings.push(recording)
-    await recordingsStorage.setValue(recordings)
+    await saveRecordingToStorage(recording)
   }
 
   async function getRecordings(): Promise<Recording[]> {
-    return await recordingsStorage.getValue()
+    const recordings = await recordingsStorageLocal.getValue()
+    return recordings as Recording[]
   }
 
   async function deleteRecording(id: string): Promise<void> {
-    const recordings = await recordingsStorage.getValue()
-    const filtered = recordings.filter(r => r.id !== id)
-    await recordingsStorage.setValue(filtered)
+    await deleteRecordingFromStorage(id)
   }
+
+  migrateRecordingsToSeparateBlobs()
 
   browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     switch (message.type) {

@@ -37,6 +37,43 @@ pnpm install
 pnpm dev
 ```
 
+### Architecture
+
+#### Recording Flow
+
+1. **Popup** (`entrypoints/popup/App.vue`) - User clicks "Record Demo"
+2. **Background** (`entrypoints/background.ts`) - Creates offscreen document
+3. **Offscreen** (`entrypoints/offscreen/main.ts`) - Uses `getDisplayMedia` to capture screen/audio via `MediaRecorder`
+
+#### Message Passing
+
+Chrome's `runtime.sendMessage()` has a **64MB limit** per message. To handle large video recordings:
+
+- `STREAM_START` - Sends metadata (id, name, duration, etc.)
+- `STREAM_CHUNK` - Sends video data in base64-encoded chunks
+- `STREAM_END` - Signals completion
+
+The offscreen document converts `Uint8Array` to base64 before sending (binary data doesn't serialize properly via `runtime.sendMessage`).
+
+#### Storage
+
+Recordings are stored in two separate storage keys:
+
+- `local:recordings` - Metadata only (id, name, duration, size, timestamps)
+- `local:recording_blobs` - Base64-encoded video data mapped by recording ID
+
+This separation allows fast metadata loading (~1KB per recording) while video data loads on-demand.
+
+#### Loading Recordings
+
+The recordings page uses **lazy loading**:
+
+1. Page load fetches only metadata (fast, minimal memory)
+2. User clicks "Play" → fetches blob for that specific recording
+3. User closes player → blob reference released for garbage collection
+
+This approach supports many large recordings without performance issues.
+
 ### Technology Stack
 
 - **Framework**: [WXT](https://wxt.dev/) - Browser extension framework

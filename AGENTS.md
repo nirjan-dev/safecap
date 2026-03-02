@@ -109,10 +109,18 @@ These globals are available (defined in eslint.config.ts):
 ├── entrypoints/          # Extension entry points
 │   ├── background.ts     # Background/service worker script
 │   ├── content.ts        # Content scripts
-│   └── popup/            # Popup UI
+│   ├── offscreen/        # Offscreen document for recording
+│   │   └── main.ts       # MediaRecorder logic
+│   ├── popup/            # Popup UI
+│   │   ├── App.vue
+│   │   ├── main.ts
+│   │   └── style.css
+│   └── recordings/       # Recordings library page
 │       ├── App.vue
-│       ├── main.ts
-│       └── style.css
+│       └── main.ts
+├── src/
+│   └── utils/
+│       └── storage.ts    # Recording storage utilities
 ├── components/           # Shared Vue components
 ├── assets/               # Static assets (images, fonts)
 ├── tests/
@@ -122,6 +130,81 @@ These globals are available (defined in eslint.config.ts):
 ├── .wxt/                 # Generated WXT types (auto-generated)
 └── .output/              # Build output (auto-generated)
 ```
+
+## Recording Architecture
+
+### Recording Flow
+
+1. **Popup** (`entrypoints/popup/App.vue`) - User clicks "Record Demo"
+2. **Background** (`entrypoints/background.ts`) - Creates offscreen document via `chrome.offscreen.createDocument()`
+3. **Offscreen** (`entrypoints/offscreen/main.ts`) - Uses `getDisplayMedia()` + `MediaRecorder` to capture
+
+### Message Passing (64MB Limit)
+
+Chrome's `runtime.sendMessage()` has a **64MB limit** per message. Large videos use chunked messaging:
+
+| Message Type   | Purpose                                         |
+| -------------- | ----------------------------------------------- |
+| `STREAM_START` | Sends metadata (id, name, duration, size, etc.) |
+| `STREAM_CHUNK` | Sends video data as base64-encoded chunks       |
+| `STREAM_END`   | Signals completion, triggers save               |
+
+**Important**: `Uint8Array` cannot be sent directly via `runtime.sendMessage()` - it serializes as `[object Object]`. Always convert to base64 string first:
+
+```typescript
+// In offscreen document - sending
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const len = bytes.byteLength
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
+// In background - receiving
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+```
+
+### Storage Structure
+
+Recordings are split into two storage keys for performance:
+
+```json
+/* local:recordings - Metadata only (~1KB per recording) */
+{
+  "id": "string",
+  "name": "string",
+  "createdAt": 0,
+  "duration": 0,
+  "size": 0,
+  "tabTitle": "string",
+  "tabUrl": "string"
+}
+```
+
+Video blobs are stored in `local:recording_blobs` as a mapping of ID to base64 string.
+
+### Lazy Loading Pattern
+
+The recordings page uses on-demand blob fetching:
+
+1. **Page load**: Fetches metadata only (fast, ~1KB per recording)
+2. **Play click**: Fetches blob from `local:recording_blobs` for that specific recording
+3. **Player close**: Revokes ObjectURL, clears blob reference for GC
+
+This supports many large recordings without memory issues.
+
+### Migration
+
+A one-time migration runs on startup (`migrateRecordingsToSeparateBlobs()`) to split existing recordings into the new format.
 
 ## Testing Guidelines
 

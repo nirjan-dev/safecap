@@ -2,7 +2,7 @@
 import type { Recording as StorageRecording } from '@/src/utils/storage'
 import { Icon } from '@iconify/vue'
 import { onMounted, ref, shallowRef } from 'vue'
-import { getRecording, recordingsStorage } from '@/src/utils/storage'
+import { getRecordingWithBlob, recordingsStorage } from '@/src/utils/storage'
 
 type Recording = Omit<StorageRecording, 'blob'>
 type RecordingWithBlob = Recording & { blob: Blob }
@@ -48,16 +48,6 @@ function formatRelativeTime(timestamp: number): string {
   return 'Just now'
 }
 
-function base64ToBlob(base64: string, type: string): Blob {
-  const byteString = atob(base64.split(',')[1] || base64)
-  const arrayBuffer = new ArrayBuffer(byteString.length)
-  const uint8Array = new Uint8Array(arrayBuffer)
-  for (let i = 0; i < byteString.length; i++) {
-    uint8Array[i] = byteString.charCodeAt(i)
-  }
-  return new Blob([uint8Array], { type })
-}
-
 async function loadRecordings() {
   loading.value = true
   const rawRecordings = await recordingsStorage.getValue()
@@ -88,16 +78,15 @@ async function playRecording(recording: Recording) {
   errorMessage.value = null
 
   try {
-    const fullRecording = await getRecording(recording.id)
+    const fullRecording = await getRecordingWithBlob(recording.id)
 
     if (!fullRecording) {
       errorMessage.value = 'Recording not found'
       return
     }
 
-    const blob = base64ToBlob(fullRecording.blob, 'video/webm')
-    videoUrl.value = URL.createObjectURL(blob)
-    selectedRecording.value = { ...recording, blob }
+    videoUrl.value = URL.createObjectURL(fullRecording.blob)
+    selectedRecording.value = { ...recording, blob: fullRecording.blob }
     setTimeout(() => {
       dialogRef.value?.showModal()
     }, 0)
@@ -121,13 +110,12 @@ function closePlayer() {
 }
 
 async function downloadRecording(recording: Recording) {
-  const fullRecording = await getRecording(recording.id)
+  const fullRecording = await getRecordingWithBlob(recording.id)
   if (!fullRecording) {
     errorMessage.value = 'Recording not found'
     return
   }
-  const blob = base64ToBlob(fullRecording.blob, 'video/webm')
-  const url = URL.createObjectURL(blob)
+  const url = URL.createObjectURL(fullRecording.blob)
   const filename = `${recording.name.replace(/[^a-z0-9]/gi, '_')}.webm`
 
   await browser.downloads.download({

@@ -1,4 +1,5 @@
 import { storage } from '#imports'
+import { deleteRecordingBlob as deleteRecordingBlobFromDb, getRecordingBlob as getRecordingBlobFromDb } from './db'
 
 export interface Recording {
   id: string
@@ -28,6 +29,10 @@ export async function getRecordingBlob(id: string): Promise<string | null> {
   return blobs[id] || null
 }
 
+export async function getRecordingBlobAsBlob(id: string): Promise<Blob | null> {
+  return getRecordingBlobFromDb(id)
+}
+
 export async function saveRecordingBlob(id: string, blob: string): Promise<void> {
   const blobs = await recordingBlobsStorage.getValue()
   blobs[id] = blob
@@ -35,9 +40,7 @@ export async function saveRecordingBlob(id: string, blob: string): Promise<void>
 }
 
 export async function deleteRecordingBlob(id: string): Promise<void> {
-  const blobs = await recordingBlobsStorage.getValue()
-  delete blobs[id]
-  await recordingBlobsStorage.setValue(blobs)
+  await deleteRecordingBlobFromDb(id)
 }
 
 export async function getRecording(id: string): Promise<Recording | null> {
@@ -52,29 +55,34 @@ export async function getRecording(id: string): Promise<Recording | null> {
   return { ...metadata, blob: blob || '' }
 }
 
-export async function saveRecording(recording: Recording): Promise<void> {
-  const metadata: RecordingMetadata = {
-    id: recording.id,
-    name: recording.name,
-    createdAt: recording.createdAt,
-    duration: recording.duration,
-    size: recording.size,
-    tabTitle: recording.tabTitle,
-    tabUrl: recording.tabUrl,
+export async function getRecordingWithBlob(id: string): Promise<(Omit<Recording, 'blob'> & { blob: Blob }) | null> {
+  const recordings = await recordingsStorage.getValue()
+  const metadata = recordings.find(r => r.id === id) || null
+
+  if (!metadata) {
+    return null
   }
 
+  const blob = await getRecordingBlobAsBlob(id)
+  if (!blob) {
+    return null
+  }
+
+  return { ...metadata, blob }
+}
+
+export async function saveRecordingMetadata(recording: RecordingMetadata): Promise<void> {
   const recordings = await recordingsStorage.getValue()
   const existing = recordings.findIndex(r => r.id === recording.id)
 
   if (existing >= 0) {
-    recordings[existing] = metadata
+    recordings[existing] = recording
   }
   else {
-    recordings.push(metadata)
+    recordings.push(recording)
   }
 
   await recordingsStorage.setValue(recordings)
-  await saveRecordingBlob(recording.id, recording.blob)
 }
 
 export async function deleteRecording(id: string): Promise<void> {

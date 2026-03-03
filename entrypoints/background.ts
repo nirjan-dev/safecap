@@ -1,30 +1,18 @@
-import type { Recording } from '@/src/utils/storage'
-import { deleteRecording as deleteRecordingFromStorage, migrateRecordingsToSeparateBlobs, recordingsStorage, saveRecording as saveRecordingToStorage } from '@/src/utils/storage'
+import type { RecordingMetadata } from '@/src/utils/storage'
+import { appendChunk, finalizeRecording, startRecordingStream } from '@/src/utils/db'
+import { deleteRecording as deleteRecordingFromStorage, recordingsStorage, saveRecordingMetadata } from '@/src/utils/storage'
 
 interface StreamingSession {
-  chunks: Uint8Array[]
-  metadata: Omit<Recording, 'blob'>
+  metadata: RecordingMetadata
 }
 
 export default defineBackground(() => {
-  // NOTE: Storage items MUST be defined inside the callback, not imported from external modules.
-  // WXT's build-time permission scanner only detects storage usage within defineBackground's callback body.
-  // See: https://github.com/wxt-dev/wxt/issues/371
   const recordingsStorageLocal = recordingsStorage
 
   const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html' as const
   let creatingOffscreen: Promise<void> | null = null
 
   const activeStreams = new Map<string, StreamingSession>()
-
-  function blobToBase64(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result as string)
-      reader.onerror = reject
-      reader.readAsDataURL(blob)
-    })
-  }
 
   function base64ToUint8Array(base64: string): Uint8Array {
     const binary = atob(base64)
@@ -44,7 +32,6 @@ export default defineBackground(() => {
   }
 
   async function setupOffscreenDocument(): Promise<void> {
-    // Always close existing first to ensure clean state
     await closeOffscreenDocument()
 
     if (creatingOffscreen) {
@@ -68,20 +55,14 @@ export default defineBackground(() => {
     }
   }
 
-  async function saveRecording(recording: Recording): Promise<void> {
-    await saveRecordingToStorage(recording)
-  }
-
-  async function getRecordings(): Promise<Recording[]> {
+  async function getRecordings(): Promise<RecordingMetadata[]> {
     const recordings = await recordingsStorageLocal.getValue()
-    return recordings as Recording[]
+    return recordings as RecordingMetadata[]
   }
 
   async function deleteRecording(id: string): Promise<void> {
     await deleteRecordingFromStorage(id)
   }
-
-  migrateRecordingsToSeparateBlobs()
 
   browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     switch (message.type) {
@@ -107,10 +88,13 @@ export default defineBackground(() => {
         return true
 
       case 'STREAM_START': {
-        const { id, metadata } = message as { id: string, metadata: Omit<Recording, 'blob'> }
+        const { id, metadata } = message as { id: string, metadata: RecordingMetadata }
+
+        startRecordingStream(id).catch((err) => {
+          console.error('Failed to start recording stream:', err)
+        })
 
         activeStreams.set(id, {
-          chunks: [],
           metadata,
         })
 
@@ -123,7 +107,10 @@ export default defineBackground(() => {
 
         if (stream) {
           const bytes = base64ToUint8Array(chunk)
-          stream.chunks.push(bytes)
+          const blobChunk = new Blob([bytes.slice().buffer], { type: 'video/webm' })
+          appendChunk(id, blobChunk).catch((err) => {
+            console.error('Failed to save chunk to IndexedDB:', err)
+          })
         }
 
         return false
@@ -137,20 +124,30 @@ export default defineBackground(() => {
           return false
         }
 
-        const blob = new Blob(stream.chunks as BlobPart[], { type: 'video/webm' })
-        blobToBase64(blob).then((base64) => {
-          const recording: Recording = { ...stream.metadata, blob: base64 }
-          saveRecording(recording).then(() => {
-            activeStreams.delete(id)
-            closeOffscreenDocument()
-          })
+        finalizeRecording(id).then(() => {
+          const recording: RecordingMetadata = {
+            id: stream.metadata.id,
+            name: stream.metadata.name,
+            createdAt: stream.metadata.createdAt,
+            duration: stream.metadata.duration,
+            size: stream.metadata.size,
+            tabTitle: stream.metadata.tabTitle,
+            tabUrl: stream.metadata.tabUrl,
+          }
+
+          return saveRecordingMetadata(recording)
+        }).then(() => {
+          activeStreams.delete(id)
+          closeOffscreenDocument()
+        }).catch((err) => {
+          console.error('Failed to save recording:', err)
         })
 
         return false
       }
 
       case 'SAVE_RECORDING':
-        saveRecording(message.recording).then(() => sendResponse({ success: true }))
+        saveRecordingMetadata(message.recording).then(() => sendResponse({ success: true }))
         return true
 
       case 'RECORDING_SAVED':

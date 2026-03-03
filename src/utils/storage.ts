@@ -1,5 +1,5 @@
 import { storage } from '#imports'
-import { deleteRecordingBlob as deleteRecordingBlobFromDb, getRecordingBlob as getRecordingBlobFromDb } from './db'
+import { deleteRecordingBlob as deleteRecordingBlobFromDb, getRecordingBlob as getRecordingBlobFromDb } from './storageBackend'
 
 export interface Recording {
   id: string

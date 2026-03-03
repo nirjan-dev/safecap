@@ -120,7 +120,10 @@ These globals are available (defined in eslint.config.ts):
 │       └── main.ts
 ├── src/
 │   └── utils/
-│       └── storage.ts    # Recording storage utilities
+│       ├── storage.ts        # Recording metadata storage
+│       ├── storageBackend.ts # Storage abstraction (OPFS/IndexedDB)
+│       ├── db.ts             # IndexedDB implementation (via Dexie)
+│       └── opfs.ts           # OPFS implementation
 ├── components/           # Shared Vue components
 ├── assets/               # Static assets (images, fonts)
 ├── tests/
@@ -175,7 +178,7 @@ function base64ToUint8Array(base64: string): Uint8Array {
 
 ### Storage Structure
 
-Recordings are split into two storage keys for performance:
+Recordings use OPFS (Origin Private File System) for video storage and `chrome.storage.local` for metadata:
 
 ```json
 /* local:recordings - Metadata only (~1KB per recording) */
@@ -190,21 +193,29 @@ Recordings are split into two storage keys for performance:
 }
 ```
 
-Video blobs are stored in `local:recording_blobs` as a mapping of ID to base64 string.
+Video files are stored in OPFS at `opfs:recordings/<id>.webm` using true streaming (no memory accumulation).
+
+### Storage Backend
+
+The storage layer is abstracted via `src/utils/storageBackend.ts`. To switch between implementations:
+
+```typescript
+// src/utils/storageBackend.ts
+export const currentBackend: StorageBackend = 'opfs' // or 'indexeddb'
+```
+
+- **OPFS** (`src/utils/opfs.ts`): Uses `FileSystemWritableFileStream` for true streaming. Files written directly to disk without chunking. Best for large recordings (30+ minutes).
+- **IndexedDB** (`src/utils/db.ts`): Uses Dexie.js with chunk-based storage. Fallback option.
 
 ### Lazy Loading Pattern
 
 The recordings page uses on-demand blob fetching:
 
 1. **Page load**: Fetches metadata only (fast, ~1KB per recording)
-2. **Play click**: Fetches blob from `local:recording_blobs` for that specific recording
+2. **Play click**: Fetches blob from OPFS for that specific recording
 3. **Player close**: Revokes ObjectURL, clears blob reference for GC
 
 This supports many large recordings without memory issues.
-
-### Migration
-
-A one-time migration runs on startup (`migrateRecordingsToSeparateBlobs()`) to split existing recordings into the new format.
 
 ## Testing Guidelines
 
@@ -252,6 +263,5 @@ Lefthook runs automatically on commit:
 
 ## Browser Support
 
-- **Primary**: Chrome/Edge (MV3)
-- **Secondary**: Firefox (MV2)
+- **Chrome/Edge only** (OPFS is Chrome/Edge exclusive)
 - Avoid browser-specific APIs; use `browser.*` polyfill when possible

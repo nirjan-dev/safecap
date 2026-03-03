@@ -1,6 +1,6 @@
 import type { RecordingMetadata } from '@/src/utils/storage'
-import { appendChunk, finalizeRecording, startRecordingStream } from '@/src/utils/db'
 import { deleteRecording as deleteRecordingFromStorage, recordingsStorage, saveRecordingMetadata } from '@/src/utils/storage'
+import { appendChunk, finalizeRecording, startRecordingStream } from '@/src/utils/storageBackend'
 
 interface StreamingSession {
   metadata: RecordingMetadata

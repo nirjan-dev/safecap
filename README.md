@@ -57,19 +57,19 @@ The offscreen document converts `Uint8Array` to base64 before sending (binary da
 
 #### Storage
 
-Recordings are stored in two separate storage keys:
+Recordings use OPFS (Origin Private File System) for video storage and `chrome.storage.local` for metadata:
 
 - `local:recordings` - Metadata only (id, name, duration, size, timestamps)
-- `local:recording_blobs` - Base64-encoded video data mapped by recording ID
+- `opfs:recordings/*.webm` - Video files streamed directly to disk
 
-This separation allows fast metadata loading (~1KB per recording) while video data loads on-demand.
+This separation allows fast metadata loading (~1KB per recording) while video data loads on-demand from OPFS. True streaming ensures no memory accumulation, supporting recordings of any length.
 
 #### Loading Recordings
 
 The recordings page uses **lazy loading**:
 
 1. Page load fetches only metadata (fast, minimal memory)
-2. User clicks "Play" → fetches blob for that specific recording
+2. User clicks "Play" → fetches blob from OPFS for that specific recording
 3. User closes player → blob reference released for garbage collection
 
 This approach supports many large recordings without performance issues.

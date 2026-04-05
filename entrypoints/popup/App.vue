@@ -3,10 +3,46 @@ type RecordingStatus = 'inactive' | 'recording' | 'paused'
 
 const recordingState = ref<RecordingStatus>('inactive')
 const isStarting = ref(false)
+const micEnabled = ref(false)
+
+async function checkMicPermission() {
+  try {
+    const status = await navigator.permissions.query({ name: 'microphone' as PermissionName })
+    micEnabled.value = status.state === 'granted'
+    status.onchange = () => {
+      micEnabled.value = status.state === 'granted'
+    }
+  }
+  catch {
+  }
+}
+
+async function enableMicrophone() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    stream.getTracks().forEach(t => t.stop())
+    micEnabled.value = true
+  }
+  catch {
+    await browser.tabs.create({
+      url: browser.runtime.getURL('/micsetup.html' as any),
+    })
+  }
+}
 
 async function startRecording() {
   if (recordingState.value !== 'inactive')
     return
+
+  if (!micEnabled.value) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(t => t.stop())
+      micEnabled.value = true
+    }
+    catch {
+    }
+  }
 
   isStarting.value = true
   try {
@@ -49,6 +85,7 @@ onMounted(async () => {
     }
   })
   await checkState()
+  await checkMicPermission()
 })
 </script>
 
@@ -67,6 +104,14 @@ onMounted(async () => {
         <span v-if="isStarting" class="loading loading-spinner loading-sm" />
         <span v-else-if="recordingState === 'inactive'">Record Demo</span>
         <span v-else>Recording...</span>
+      </button>
+
+      <button
+        class="btn btn-outline"
+        :class="micEnabled ? 'btn-success' : ''"
+        @click="enableMicrophone"
+      >
+        {{ micEnabled ? 'Mic On' : 'Enable Mic' }}
       </button>
 
       <button

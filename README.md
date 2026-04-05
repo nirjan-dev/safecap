@@ -43,7 +43,16 @@ pnpm dev
 
 1. **Popup** (`entrypoints/popup/App.vue`) - User clicks "Record Demo"
 2. **Background** (`entrypoints/background.ts`) - Creates offscreen document
-3. **Offscreen** (`entrypoints/offscreen/main.ts`) - Uses `getDisplayMedia` to capture screen/audio via `MediaRecorder`
+3. **Offscreen** (`entrypoints/offscreen/main.ts`) - Uses `getDisplayMedia` to capture tab video/audio, optionally mixes in microphone via Web Audio API, records via `MediaRecorder`
+
+#### Microphone Support
+
+SafeCap supports microphone audio capture mixed with tab audio:
+
+- **Enable Mic**: Click "Enable Mic" in the popup to grant microphone permission
+- **Permission Handling**: If the popup cannot show the permission prompt, a dedicated setup page opens automatically
+- **Audio Mixing**: Tab audio is passed through to your speakers (so you can still hear the meeting) while both tab and mic audio are mixed into the recording
+- **Graceful Fallback**: If mic permission is denied, recording continues with tab audio only
 
 #### Message Passing
 

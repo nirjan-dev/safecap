@@ -115,7 +115,10 @@ These globals are available (defined in eslint.config.ts):
 │   │   ├── App.vue
 │   │   ├── main.ts
 │   │   └── style.css
-│   └── recordings/       # Recordings library page
+│   ├── recordings/       # Recordings library page
+│   │   ├── App.vue
+│   │   └── main.ts
+│   └── micsetup/         # Microphone permission setup page
 │       ├── App.vue
 │       └── main.ts
 ├── src/
@@ -140,7 +143,28 @@ These globals are available (defined in eslint.config.ts):
 
 1. **Popup** (`entrypoints/popup/App.vue`) - User clicks "Record Demo"
 2. **Background** (`entrypoints/background.ts`) - Creates offscreen document via `chrome.offscreen.createDocument()`
-3. **Offscreen** (`entrypoints/offscreen/main.ts`) - Uses `getDisplayMedia()` + `MediaRecorder` to capture
+3. **Offscreen** (`entrypoints/offscreen/main.ts`) - Uses `getDisplayMedia()` + `MediaRecorder` to capture tab video/audio, optionally mixes microphone via Web Audio API
+
+### Microphone Architecture
+
+Chrome's offscreen documents cannot reliably show permission prompts for `getUserMedia()`. SafeCap uses a dedicated page pattern:
+
+1. User clicks "Enable Mic" in popup
+2. Popup attempts inline `getUserMedia({ audio: true })`
+3. If inline fails, opens `micsetup.html` in a new tab for permission grant
+4. Once granted at the extension origin level, the offscreen document can access the mic during recording
+5. If mic is not enabled, recording continues with tab audio only
+
+**Audio Mixing** (`entrypoints/offscreen/main.ts`):
+
+```typescript
+// Tab audio → speakers (user hears meeting)
+tabSource.connect(ctx.destination)
+// Tab audio → recorder
+tabSource.connect(dst)
+// Mic audio → recorder
+micSource.connect(dst)
+```
 
 ### Message Passing (64MB Limit)
 

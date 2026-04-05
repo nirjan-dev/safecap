@@ -34,9 +34,49 @@ function generateRecordingName(tabTitle?: string): string {
   return `Recording ${new Date(recordingStartTime).toLocaleString()}`
 }
 
+async function maybeGetMicStream(): Promise<MediaStream | null> {
+  try {
+    const mic = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    })
+    return mic
+  }
+  catch (e) {
+    console.log('mic getUserMedia failed (continuing without mic):', e)
+    return null
+  }
+}
+
+function mixAudio(tabStream: MediaStream, micStream: MediaStream | null): MediaStream {
+  const tabAudio = tabStream.getAudioTracks()[0]
+  if (!micStream || !tabAudio)
+    return tabStream
+
+  const ctx = new AudioContext()
+  const dst = ctx.createMediaStreamDestination()
+
+  const tabSource = ctx.createMediaStreamSource(new MediaStream([tabAudio]))
+  tabSource.connect(ctx.destination)
+  tabSource.connect(dst)
+
+  const micTrack = micStream.getAudioTracks()[0]
+  if (micTrack) {
+    ctx.createMediaStreamSource(new MediaStream([micTrack])).connect(dst)
+  }
+
+  return new MediaStream([
+    ...tabStream.getVideoTracks(),
+    ...dst.stream.getAudioTracks(),
+  ])
+}
+
 async function startRecording(): Promise<{ success: boolean, error?: string }> {
   try {
-    const stream = await navigator.mediaDevices.getDisplayMedia({
+    const tabStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
         displaySurface: 'browser',
       },
@@ -44,16 +84,19 @@ async function startRecording(): Promise<{ success: boolean, error?: string }> {
       systemAudio: 'include',
     } as any)
 
-    stream.getVideoTracks()[0].onended = () => {
+    tabStream.getVideoTracks()[0].onended = () => {
       stopRecording()
     }
+
+    const micStream = await maybeGetMicStream()
+    const mixedStream = mixAudio(tabStream, micStream)
 
     currentRecordingId = generateId()
     chunks = []
     recordingStartTime = Date.now()
     pausedDuration = 0
 
-    mediaRecorder = new MediaRecorder(stream, {
+    mediaRecorder = new MediaRecorder(mixedStream, {
       mimeType: 'video/webm;codecs=vp9',
     })
 

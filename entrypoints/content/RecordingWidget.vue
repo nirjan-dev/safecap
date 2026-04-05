@@ -20,7 +20,7 @@ function formatDuration(seconds: number): string {
 
 const isRecording = computed(() => recordingState.value === 'recording')
 const isPaused = computed(() => recordingState.value === 'paused')
-const isVisible = computed(() => recordingState.value !== 'inactive')
+const isVisible = computed(() => recordingState.value && recordingState.value !== 'inactive')
 
 async function handlePauseResume() {
   if (recordingState.value === 'recording') {
@@ -87,18 +87,15 @@ onUnmounted(() => {
 
 <template>
   <div v-if="isVisible" class="safecap-widget">
-    <div
-      class="status-indicator"
-      :class="{ recording: isRecording, paused: isPaused }"
-    />
+    <div class="status-indicator" :class="{ recording: isRecording, paused: isPaused }" />
 
     <span class="duration">{{ formatDuration(duration) }}</span>
 
-    <button
-      class="control-btn pause-btn"
-      @click="handlePauseResume"
-    >
-      <svg v-if="isRecording" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <button class="control-btn pause-btn" @click="handlePauseResume">
+      <svg
+        v-if="isRecording" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2"
+      >
         <rect x="6" y="4" width="4" height="16" rx="1" />
         <rect x="14" y="4" width="4" height="16" rx="1" />
       </svg>
@@ -107,10 +104,7 @@ onUnmounted(() => {
       </svg>
     </button>
 
-    <button
-      class="control-btn stop-btn"
-      @click="handleStop"
-    >
+    <button class="control-btn stop-btn" @click="handleStop">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
         <rect x="4" y="4" width="16" height="16" rx="2" />
       </svg>
@@ -193,6 +187,7 @@ onUnmounted(() => {
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }

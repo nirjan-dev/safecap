@@ -1,8 +1,9 @@
 <script lang="ts" setup>
+import type { SummaryProgress } from '@/src/utils/aiTranscriber'
 import type { RecordingTranscript, TranscriptSegment } from '@/src/utils/transcriptStorage'
 import { Icon } from '@iconify/vue'
-import { checkAvailability, generateSummaryAndChapters } from '@/src/utils/aiTranscriber'
-import { saveTranscript } from '@/src/utils/transcriptStorage'
+import { generateRecordingSummary } from '@/src/utils/aiTranscriber'
+import { getTranscript, saveTranscript } from '@/src/utils/transcriptStorage'
 
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
 
@@ -18,6 +19,8 @@ const hasMic = ref(false)
 const currentTabInfo = ref<{ title?: string, url?: string } | null>(null)
 const showPreview = ref(false)
 const previewUrl = ref<string | null>(null)
+const summaryProgress = ref<SummaryProgress>({ status: 'idle', progress: 0 })
+const recordingSummary = ref('')
 
 let mediaRecorder: MediaRecorder | null = null
 let speechRecognition: any = null
@@ -320,22 +323,21 @@ async function saveRecording() {
     const size = file.size
     currentBlob = file
 
-    statusText.value = 'Processing with AI...'
+    statusText.value = 'Processing...'
 
     const transcriptText = segments.value.map(s => s.text).join(' ')
-    const { summary, chapters } = await generateSummaryAndChapters(transcriptText, recordingDuration)
 
     const fullTranscript: RecordingTranscript = {
       recordingId: currentRecordingId,
       generatedAt: Date.now(),
       segments: segments.value,
-      summary,
-      chapters,
+      summary: '',
+      chapters: [],
     }
 
     await saveTranscript(currentRecordingId, fullTranscript)
 
-    const hasAiContent = summary.length > 0 || chapters.length > 0
+    const hasAiContent = transcriptText.trim().length > 0
 
     const metadata = {
       id: currentRecordingId,
@@ -353,22 +355,66 @@ async function saveRecording() {
       recording: metadata,
     })
 
-    const aiStatus = await checkAvailability()
-    if (!aiStatus.available) {
-      statusText.value = hasAiContent ? 'Recording saved with transcript!' : 'Recording saved!'
-    }
-    else {
-      statusText.value = 'Recording saved with summary and chapters!'
-    }
-
+    statusText.value = hasAiContent ? 'Recording saved!' : 'Recording saved!'
     previewUrl.value = URL.createObjectURL(currentBlob)
     showPreview.value = true
     state.value = 'idle'
+
+    if (transcriptText.trim()) {
+      generateSummaryInBackground(transcriptText, currentRecordingId)
+    }
   }
   catch (error) {
     console.error('Failed to save recording:', error)
     statusText.value = `Failed to save: ${error}`
     state.value = 'idle'
+  }
+}
+
+async function generateSummaryInBackground(transcriptText: string, recordingId: string) {
+  summaryProgress.value = { status: 'checking', progress: 0 }
+
+  try {
+    if (!('Summarizer' in globalThis)) {
+      summaryProgress.value = { status: 'unavailable', progress: 0, error: 'Summarizer API not available' }
+
+      return
+    }
+
+    const availability = await (globalThis as any).Summarizer.availability()
+    if (availability === 'unavailable') {
+      summaryProgress.value = { status: 'unavailable', progress: 0, error: 'Summarizer not available on this device' }
+
+      return
+    }
+
+    const { summary } = await generateRecordingSummary(transcriptText, (p) => {
+      summaryProgress.value = p
+      if (p.status === 'downloading') {
+        statusText.value = `Downloading AI model... ${p.progress}%`
+      }
+      else if (p.status === 'summarizing') {
+        statusText.value = 'Generating summary...'
+      }
+      else if (p.status === 'unavailable') {
+        statusText.value = 'AI Summary unavailable'
+      }
+      else if (p.status === 'ready') {
+        statusText.value = 'Recording saved with summary!'
+      }
+    })
+
+    recordingSummary.value = summary
+
+    const existingTranscript = await getTranscript(recordingId)
+    if (existingTranscript) {
+      existingTranscript.summary = summary
+      await saveTranscript(recordingId, existingTranscript)
+    }
+  }
+  catch (e) {
+    console.error('Failed to generate summary:', e)
+    summaryProgress.value = { status: 'unavailable', progress: 0, error: String(e) }
   }
 }
 
@@ -383,6 +429,8 @@ function clearRecording() {
   statusText.value = ''
   currentBlob = null
   currentRecordingId = ''
+  recordingSummary.value = ''
+  summaryProgress.value = { status: 'idle', progress: 0 }
 }
 
 function openRecordings() {
@@ -573,6 +621,45 @@ onUnmounted(() => {
           <Icon icon="lucide:circle" class="w-4 h-4" />
           New Recording
         </button>
+      </div>
+
+      <div v-if="recordingSummary || summaryProgress.status !== 'idle'" class="w-full">
+        <div class="divider my-2">
+          Summary
+        </div>
+
+        <div v-if="summaryProgress.status === 'downloading'" class="bg-base-300 rounded-lg p-4">
+          <div class="flex items-center gap-3">
+            <span class="loading loading-spinner loading-sm" />
+            <span class="text-sm">Downloading AI model... {{ summaryProgress.progress }}%</span>
+          </div>
+          <progress
+            class="progress progress-primary mt-2"
+            :value="summaryProgress.progress"
+            max="100"
+          />
+        </div>
+
+        <div v-else-if="summaryProgress.status === 'checking' || summaryProgress.status === 'summarizing'" class="bg-base-300 rounded-lg p-4">
+          <div class="flex items-center gap-3">
+            <span class="loading loading-spinner loading-sm" />
+            <span class="text-sm">
+              {{ summaryProgress.status === 'checking' ? 'Checking AI...' : 'Generating summary...' }}
+            </span>
+          </div>
+        </div>
+
+        <div v-else-if="summaryProgress.status === 'unavailable'" class="bg-base-300 rounded-lg p-4">
+          <p class="text-sm text-warning">
+            AI Summary unavailable on this device
+          </p>
+        </div>
+
+        <div v-else-if="recordingSummary" class="bg-base-300 rounded-lg p-4">
+          <div class="prose prose-sm max-w-none">
+            {{ recordingSummary }}
+          </div>
+        </div>
       </div>
 
       <div v-if="segments.length > 0" class="w-full">

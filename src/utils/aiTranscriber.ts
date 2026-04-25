@@ -1,32 +1,41 @@
-import type { Chapter } from './transcriptStorage'
+export type SummaryStatus = 'idle' | 'checking' | 'downloading' | 'ready' | 'summarizing' | 'unavailable'
 
-interface AvailabilityResult {
+export interface SummaryProgress {
+  status: SummaryStatus
+  progress: number
+  error?: string
+}
+
+export interface AvailabilityResult {
   available: boolean
   downloadable?: boolean
   reason?: string
 }
 
-interface SummaryAndChapters {
-  summary: string
-  chapters: Chapter[]
+function isSummarizerSupported(): boolean {
+  return 'Summarizer' in globalThis
 }
 
 export async function checkAvailability(): Promise<AvailabilityResult> {
+  if (!isSummarizerSupported()) {
+    return { available: false, reason: 'Summarizer API not supported in this browser' }
+  }
+
   try {
-    if (typeof (window as any).ai !== 'undefined') {
-      const summarizerCapability = await (window as any).ai.summarizer.canCreate()
-      if (summarizerCapability === 'readily') {
+    const availability = await Summarizer.availability()
+
+    switch (availability) {
+      case 'available':
         return { available: true, downloadable: false }
-      }
-      return {
-        available: false,
-        downloadable: summarizerCapability === 'downloadable',
-        reason: summarizerCapability === 'downloadable'
-          ? 'AI model needs to be downloaded (22GB)'
-          : 'AI not available on this device',
-      }
+      case 'downloadable':
+        return { available: false, downloadable: true }
+      case 'downloading':
+        return { available: false, downloadable: true }
+      case 'unavailable':
+        return { available: false, reason: 'Summarizer is not available on this device' }
+      default:
+        return { available: false, reason: 'Unknown availability status' }
     }
-    return { available: false, reason: 'AI API not available' }
   }
   catch (e) {
     return { available: false, reason: String(e) }
@@ -34,8 +43,16 @@ export async function checkAvailability(): Promise<AvailabilityResult> {
 }
 
 export async function downloadAiModel(): Promise<boolean> {
+  if (!isSummarizerSupported()) {
+    return false
+  }
+
   try {
-    const _summarizer = await (window as any).ai.summarizer.create()
+    await Summarizer.create({
+      type: 'key-points',
+      format: 'markdown',
+      length: 'medium',
+    })
     return true
   }
   catch {
@@ -43,91 +60,62 @@ export async function downloadAiModel(): Promise<boolean> {
   }
 }
 
-export async function generateSummaryAndChapters(
+export async function generateRecordingSummary(
   transcriptText: string,
-  duration: number,
-): Promise<SummaryAndChapters> {
-  const availability = await checkAvailability()
-
-  if (!availability.available) {
-    return { summary: '', chapters: [] }
+  onProgress?: (progress: SummaryProgress) => void,
+): Promise<{ summary: string }> {
+  if (!transcriptText.trim()) {
+    return { summary: '' }
   }
 
-  const summary = await generateSummary(transcriptText)
-  const chapters = await detectChapters(transcriptText, duration)
+  if (!isSummarizerSupported()) {
+    return { summary: '' }
+  }
 
-  return { summary, chapters }
-}
+  onProgress?.({ status: 'checking', progress: 0 })
 
-async function generateSummary(transcriptText: string): Promise<string> {
   try {
-    const summarizer = await (window as any).ai.summarizer.create({
+    const availability = await Summarizer.availability()
+
+    if (availability === 'unavailable') {
+      onProgress?.({ status: 'unavailable', progress: 0, error: 'Summarizer is not available on this device' })
+      return { summary: '' }
+    }
+
+    if (availability === 'downloadable' || availability === 'downloading') {
+      const summarizer = await Summarizer.create({
+        type: 'key-points',
+        format: 'markdown',
+        length: 'medium',
+        monitor(m) {
+          m.addEventListener('downloadprogress', (e: Event) => {
+            const progressEvent = e as unknown as { loaded: number }
+            const progress = Math.round(progressEvent.loaded * 100)
+            onProgress?.({ status: 'downloading', progress })
+          })
+        },
+      })
+
+      onProgress?.({ status: 'summarizing', progress: 100 })
+      const summary = await summarizer.summarize(transcriptText)
+      onProgress?.({ status: 'ready', progress: 100 })
+      return { summary }
+    }
+
+    onProgress?.({ status: 'summarizing', progress: 0 })
+    const summarizer = await Summarizer.create({
       type: 'key-points',
       format: 'markdown',
       length: 'medium',
     })
 
     const summary = await summarizer.summarize(transcriptText)
-    return summary
+    onProgress?.({ status: 'ready', progress: 100 })
+    return { summary }
   }
   catch (e) {
     console.error('Failed to generate summary:', e)
-    return ''
+    onProgress?.({ status: 'unavailable', progress: 0, error: String(e) })
+    return { summary: '' }
   }
-}
-
-async function detectChapters(transcriptText: string, _duration: number): Promise<Chapter[]> {
-  try {
-    const session = await (window as any).ai.languageModel.create()
-
-    const prompt = `You are a video chapter generator. Given the following transcript, identify the main topics/sections and their approximate start times. Return ONLY a JSON array of chapters in this exact format:
-[
-  {"title": "Introduction", "start": 0},
-  {"title": "Main Topic 1", "start": 120},
-  {"title": "Main Topic 2", "start": 300}
-]
-Do not include any other text. Use reasonable timestamps based on the transcript length.
-
-Transcript:
-${transcriptText.slice(0, 4000)}`
-
-    const response = await session.prompt(prompt)
-    await session.destroy()
-
-    const chapters = parseChapterResponse(response)
-    return chapters
-  }
-  catch (e) {
-    console.error('Failed to detect chapters:', e)
-    return []
-  }
-}
-
-function parseChapterResponse(response: string): Chapter[] {
-  try {
-    const jsonMatch = response.match(/\[[\s\S]*\]/)
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]) as Array<{ title: string, start: number }>
-      return parsed.map(p => ({ title: p.title, start: p.start, end: p.start + 60 }))
-    }
-  }
-  catch {
-  }
-
-  const regexChapters: Chapter[] = []
-  const regex = /\[(\d{1,2}):(\d{2})\]\s*([^[\n]+)/g
-  let match = regex.exec(response)
-  while (match !== null) {
-    const minutes = Number.parseInt(match[1], 10)
-    const seconds = Number.parseInt(match[2], 10)
-    const start = minutes * 60 + seconds
-    const title = match[3].trim()
-
-    if (title && start > 0) {
-      regexChapters.push({ title, start, end: start + 60 })
-    }
-    match = regex.exec(response)
-  }
-
-  return regexChapters
 }

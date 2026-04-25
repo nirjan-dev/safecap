@@ -73,7 +73,7 @@ async function loadRecordings() {
       size: r.size,
       tabTitle: r.tabTitle,
       tabUrl: r.tabUrl,
-      hasTranscript: (r as any).hasTranscript ?? (await hasTranscriptFile(r.id)),
+      hasTranscript: r.hasTranscript === true || await hasTranscriptFile(r.id),
     })),
   )
 
@@ -91,6 +91,7 @@ async function openTranscriptPanel(recording: Recording) {
     if (transcriptData) {
       transcript.value = transcriptData
       showTranscriptPanel.value = true
+      await playRecording(recording, true)
     }
   }
   catch (err) {
@@ -127,8 +128,8 @@ async function handleDeleteTranscript() {
   await loadRecordings()
 }
 
-async function playRecording(recording: Recording) {
-  if (loadingRecordingId.value)
+async function playRecording(recording: Recording, withTranscript = false) {
+  if (loadingRecordingId.value && !withTranscript)
     return
 
   if (videoUrl.value) {
@@ -137,8 +138,10 @@ async function playRecording(recording: Recording) {
 
   loadingRecordingId.value = recording.id
   errorMessage.value = null
-  showTranscriptPanel.value = false
-  transcript.value = null
+  if (!withTranscript) {
+    showTranscriptPanel.value = false
+    transcript.value = null
+  }
 
   try {
     const fullRecording = await getRecordingWithBlob(recording.id)

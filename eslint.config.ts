@@ -20,6 +20,8 @@ export default antfu(
       'node_modules',
       'dist',
       '*.d.ts',
+      '*.md',
+      'plans/**',
     ],
   },
   {

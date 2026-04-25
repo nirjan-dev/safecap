@@ -6,17 +6,27 @@ As a SafeCap user, I record demos and meetings but have no way to quickly unders
 
 ## Solution
 
-Add an AI-powered transcription pipeline that generates timestamped transcripts, AI summaries, and chapter markers for recordings. Everything runs 100% locally using Chrome's built-in AI APIs (Summarizer API, Prompt API) with no data leaving the device. The feature is free for all users since it has zero infrastructure cost.
+Add an AI-powered transcription pipeline that generates timestamped transcripts, AI summaries, and chapter markers for recordings. Everything runs 100% locally with no data leaving the device. The feature is free for all users since it has zero infrastructure cost.
 
-**Phase 1 (this PRD):** Post-recording transcript generation via a button in the recordings library, using Chrome Built-in AI.
+**Architecture: Hybrid approach using Web Speech API + Chrome Built-in AI.**
 
-**Future:** Real-time transcription during recording so the transcript is ready immediately when the recording stops.
+Full transcription via Chrome AI (Gemini Nano) is not feasible due to the token limits: **1,024 tokens per prompt** and **4,096 tokens session context window**. A 5-minute meeting transcript easily exceeds these limits.
+
+Instead, we use:
+
+1. **Web Speech API** (`SpeechRecognition`) for real-time transcription during recording — unlimited, free, runs in real-time
+2. **Chrome Prompt API** (`LanguageModel`) for chapter detection — small input (transcript text) fits in context window
+3. **Chrome Summarizer API** (`Summarizer`) for summaries — same, small input
+
+**Phase 1 (this PRD):** New visible recording page that handles recording + live transcription, replaces the offscreen document pattern. Post-recording summary + chapter generation via Chrome AI.
+
+**Future:** Post-recording transcription fallback for recordings that didn't use the transcript page, using `browser-whisper` (WebGPU).
 
 ## User Stories
 
-1. As a recording library user, I want to see a "Generate Transcript" button on each recording card, so that I can create a transcript for any recording on demand.
-2. As a user, I want to see a progress indicator while the transcript is being generated, so that I know the AI is working and how far along it is.
-3. As a user, I want to see a transcript with timestamps next to each segment after generation, so that I can find specific moments in the recording.
+1. As a user, I want to start recording from the popup and have it open a dedicated transcript page, so that I can record with live transcription.
+2. As a user, I want to see a live transcript feed while recording, so that I can verify my audio is being captured correctly.
+3. As a user, I want to see a transcript with timestamps next to each segment after recording stops, so that I can find specific moments in the recording.
 4. As a user, I want to see an AI-generated summary of the recording, so that I can understand the content without watching the full video.
 5. As a user, I want to see auto-detected chapter markers with timestamps and titles, so that I can navigate to different sections of the recording.
 6. As a user, I want to click on a transcript segment or chapter marker and have the video player jump to that timestamp, so that I can quickly navigate to relevant parts.
@@ -25,78 +35,84 @@ Add an AI-powered transcription pipeline that generates timestamped transcripts,
 9. As a user, I want to delete a transcript independently of the recording, so that I can regenerate it or free up space.
 10. As a user, I want to copy the transcript text to my clipboard, so that I can paste it into notes or documentation.
 11. As a user, I want the AI features to work fully offline after the initial model download, so that my data never leaves my machine.
-12. As a user, I want to see a clear message if Chrome AI is not available on my device, so that I understand why the feature isn't working.
+12. As a user, I want to see a clear message if Chrome AI is not available on my device, so that I understand why summary/chapters won't be generated.
 13. As a user, I want the transcript panel to be visible alongside the video player in the recordings modal, so that I can watch and read simultaneously.
 
 ## Implementation Decisions
 
 ### Architecture Overview
 
-The transcription pipeline runs **entirely in the recordings page context** — no background script involvement. Chrome AI APIs (`LanguageModel`, `Summarizer`) require a document context, and the recordings page already has direct access to OPFS and storage utilities. This eliminates unnecessary message passing and simplifies the architecture.
+The recording and transcription pipeline runs in a **new visible page** (`entrypoints/transcript/main.ts` + `App.vue`). This replaces the offscreen document pattern entirely. The visible page context is required for `SpeechRecognition` (it throws a NotAllowedError in non-visible contexts like offscreen documents).
 
 ```
-WebM recording → Audio extraction → Transcription (Chrome Prompt API audio) → Summary + Chapters (Chrome Summarizer API + Prompt API) → Store in OPFS
+User clicks "Record" in popup → Background opens transcript page → Transcript page calls getDisplayMedia() → SpeechRecognition (live transcript) + MediaRecorder (video to OPFS) → Recording stops → Chrome AI generates summary + chapters → Transcript saved to OPFS
 ```
 
-**No new message types are needed.** The recordings page calls `aiTranscriber.generateTranscript()` directly, shows progress locally, and saves to OPFS directly.
+**Key architectural change:** All recording logic moves from the offscreen document to the new transcript page. This eliminates:
 
-### Generation Flow: Non-Blocking
+- Offscreen document creation/destruction in background
+- 64MB chunked messaging (STREAM_START, STREAM_CHUNK, STREAM_END)
+- Base64 conversion of video data
+- MessagePort track transfer complexity
 
-Transcript generation is **non-blocking**. When a user clicks "Generate Transcript" on a recording card:
+The transcript page writes directly to OPFS using `FileSystemWritableFileStream` — true streaming with no memory accumulation.
 
-1. An inline loading spinner and progress text appear on the card itself (e.g., "Transcribing... (2/4 stages)")
-2. The user can continue browsing other recordings or doing anything else on the page
-3. A success toast notification appears when generation completes
-4. The card icon changes from `lucide:wand-sparkles` to `lucide:file-text`
-5. Clicking the transcript icon after completion opens the transcript panel in the modal
+**No new message types are needed for recording.** The background script opens the transcript page and sends stop/pause/resume commands via `runtime.sendMessage`. The transcript page handles all recording, transcription, and AI processing locally.
 
-**Tab close protection:** If the user tries to close the recordings tab while generation is in progress, a `beforeunload` event listener shows a browser-native warning: "Transcript generation is still in progress. Are you sure you want to leave?"
+### Generation Flow: Real-Time + Post-Processing
 
-If the tab is closed despite the warning, generation is lost and the user can retry. This is acceptable for Phase 1.
+**During recording (real-time):**
+
+1. `SpeechRecognition` runs continuously, producing timestamped segments
+2. Segments are stored in memory (array)
+3. User sees live transcript feed in the recording page
+
+**After recording stops (post-processing):**
+
+1. In-memory transcript saved to OPFS
+2. Chrome AI generates summary from transcript text
+3. Chrome AI generates chapter markers from transcript text
+4. Success state shown, user redirected to recordings library
+
+**Tab close protection:** A `beforeunload` event listener warns: "Recording is in progress. Are you sure you want to stop?" If the tab is closed despite the warning, the recording in progress is lost (video file may be incomplete). This is acceptable since the user explicitly chose to close.
 
 ### AI Backend: Chrome Built-in AI Only (Phase 1)
 
-- Use **Chrome Prompt API** (`LanguageModel`) with audio input for transcription. The Prompt API supports `AudioBuffer`, `ArrayBuffer`, and `Blob` as audio input types.
 - Use **Chrome Summarizer API** (`Summarizer`) for generating summaries from the transcript text.
-- Use **Chrome Prompt API** with structured output (JSON Schema) for chapter marker detection.
-- If Chrome AI is unavailable (`availability() === 'unavailable'`), show a disabled state with an explanation message.
-- Future fallback: `browser-whisper` npm package (WebGPU + WebCodecs Whisper) for non-Chrome browsers.
+- Use **Chrome Prompt API** (`LanguageModel`) with structured output (JSON Schema) for chapter marker detection.
+- If Chrome AI is unavailable (`availability() === 'unavailable'`), still allow recording and live transcription (Web Speech API works without Chrome AI), but skip summary + chapter generation. Show a message explaining that summaries and chapters require Chrome AI.
+- Future fallback: `browser-whisper` npm package (WebGPU + WebCodecs Whisper) for post-recording transcription of recordings that didn't use the transcript page.
 
-### Audio Extraction
+### Transcription: Web Speech API
 
-- **Primary approach (v1):** Pass the raw WebM blob directly to the Chrome Prompt API and see if it transcribes. This is the simplest path.
-- **Fallback approach (documented for later):** If the Prompt API cannot handle WebM directly, extract audio using `AudioContext.decodeAudioData()` to produce an `AudioBuffer`, then pass that to the Prompt API.
-- If `decodeAudioData()` fails (codec issues), fall back to using the raw WebM blob — the Prompt API accepts `Blob` input.
-- The WebM blob is fetched from OPFS using the same lazy-loading pattern as video playback.
+- Use `SpeechRecognition` (prefixed as `webkitSpeechRecognition` in Chrome) for real-time transcription.
+- **Audio source:** Pass the audio track from `getDisplayMedia()` to `SpeechRecognition.start({ audioTrack })`. This captures both the tab audio (speakers in a meeting) and any audio played through the tab.
+- **Visible document required:** `SpeechRecognition` only works in a visible document context. This is why recording runs in a dedicated page, not an offscreen document.
+- **Continuous mode:** Set `continuous = true` and `interimResults = true` for real-time streaming transcript.
+- **Timestamps:** Use `result.timestamp` (milliseconds from start of recognition) to generate segment timestamps.
+- **Language:** Default to `en-US`, allow user to configure language in settings (future).
+- **Error handling:** Handle `no-speech`, `audio-capture`, `not-allowed`, and `network` errors gracefully.
 
-### Silence Detection
+### Audio Capture
 
-- Before running the AI pipeline, perform a quick audio energy check on the extracted audio.
-- If the entire recording is below a noise threshold, skip AI processing and show: "No audio detected in this recording."
-- This step is designed as a pluggable "content analysis" stage so future visual analysis can be added without restructuring the pipeline.
-
-### Structured Output Fallback
-
-Chrome AI structured output (JSON Schema via `responseConstraint`) is not guaranteed to produce valid JSON. Add a fallback parsing layer in `aiTranscriber.ts`:
-
-1. **First:** Parse the response as JSON using the schema constraint.
-2. **Second (if JSON parsing fails):** Use regex to extract `[MM:SS] text` patterns from the raw text response.
-3. **Third (if regex also fails):** Fall back to a single-segment transcript with the full text and `start: 0, end: duration`.
-4. Log the failure mode for debugging and quality tracking.
+- The transcript page calls `getDisplayMedia({ video: true, audio: true })` — single permission prompt.
+- Video track → `MediaRecorder` → OPFS via `FileSystemWritableFileStream` (true streaming).
+- Audio track → `SpeechRecognition.start({ audioTrack })` for live transcription.
+- Both share the same `MediaStream` — no cross-context track transfer needed.
 
 ### Transcript Data Model
 
 ```typescript
 interface TranscriptSegment {
   text: string
-  start: number  // seconds from start
-  end: number    // seconds from start
+  start: number // seconds from start
+  end: number // seconds from start
 }
 
 interface Chapter {
   title: string
-  start: number  // seconds from start
-  end: number    // seconds from start
+  start: number // seconds from start
+  end: number // seconds from start
 }
 
 interface RecordingTranscript {
@@ -118,16 +134,24 @@ interface RecordingTranscript {
 
 ### UI Changes
 
+**New Transcript/Recording Page (`entrypoints/transcript/`):**
+
+- Minimal UI during recording: red dot indicator, "Recording/Paused" status, duration counter, live transcript feed (scrollable), Stop button.
+- Note: "Keep this tab open during recording."
+- After recording stops: "Processing..." state while Chrome AI generates summary + chapters.
+- "Done" state with link to recordings library, preview of transcript/summary/chapters.
+- If Chrome AI unavailable: skip summary/chapters, show message, still save transcript.
+
 **Recordings Library (`entrypoints/recordings/App.vue`):**
+
 - Add a "Transcript" icon button to each recording card (alongside Play, Download, Delete).
 - If transcript exists: show `lucide:file-text` icon, clicking opens the transcript panel.
-- If no transcript: show `lucide:wand-sparkles` icon, clicking triggers generation.
-- During generation: show an inline loading spinner with stage-based progress text on the card (e.g., "Transcribing... (2/4 stages)").
-- A success toast notification appears when generation completes.
+- If no transcript: show `lucide:wand-sparkles` icon, clicking triggers post-recording transcription (future Phase 2).
 - **AI Enablement Banner:** If Chrome AI model is in `downloadable` state, show a prominent banner at the top of the recordings page: "AI features require a one-time 22GB model download." with an "Enable AI Features" button. This single toggle downloads all models upfront.
 - If AI is `unavailable`, show a disabled state on the transcript button with a tooltip explaining hardware requirements.
 
 **Transcript Panel (new component `components/TranscriptPanel.vue`):**
+
 - Tabs: "Transcript" | "Summary" | "Chapters"
 - Transcript tab: scrollable list of segments with timestamps. Clicking a segment seeks the video player to that timestamp.
 - Summary tab: markdown-rendered summary text with a "Copy" button.
@@ -135,119 +159,108 @@ interface RecordingTranscript {
 - "Delete Transcript" button at the bottom with a confirmation dialog: "Delete transcript for '{recording name}'? This cannot be undone."
 
 **Modal Layout:**
+
 - The transcript panel opens as a side panel within the existing video player modal.
 - **Responsive layout:** On wide screens (>1280px), show side-by-side (video left ~60%, transcript right ~40%). On narrower screens, stack vertically (video top, transcript below as a collapsible panel).
 - The modal width increases from `max-w-5xl` to a wider size when the transcript panel is open.
 - The transcript panel has its own internal scroll independent of the video.
 
 **Video-Transcript Communication:**
+
 - Use Vue `provide/inject` to pass the video element reference from `App.vue` to `TranscriptPanel.vue`.
 - The transcript panel emits seek events (e.g., `seek-to: number`) which the parent handles by setting `video.currentTime = timestamp`.
-
-### Progress Tracking
-
-- Progress is **stage-based**, not percentage-based. Chrome AI APIs return a single `Promise<string>` with no streaming progress.
-- Four stages with equal weight (25% each): `extracting` → `transcribing` → `summarizing` → `chapters`.
-- Within each stage, progress is binary (0 or 1). The UI shows "Stage 2 of 4: Transcribing..." rather than a percentage bar.
 
 ### Chrome AI Integration Details
 
 **Model availability check:**
+
 - On recordings page mount, check `LanguageModel.availability()` and `Summarizer.availability()`.
 - If `downloadable`, show the "Enable AI Features" banner. Clicking the button triggers the model download with progress monitoring.
-- If `unavailable`, disable AI features and show a message explaining requirements (Chrome 138+, GPU >4GB VRAM or CPU 16GB+ RAM, 22GB free space).
-
-**Transcription prompt:**
-- Use `LanguageModel.create()` with `expectedInputs: [{ type: 'audio' }]` and `expectedOutputs: [{ type: 'text' }]`.
-- Prompt: "Transcribe this audio recording. For each segment, provide the text and the timestamp in seconds from the start. Format each segment as: [MM:SS] text"
-- Use `responseConstraint` with JSON Schema to get structured output: `{ segments: [{ text: string, start: number, end: number }] }`.
+- If `unavailable`, disable summary + chapter generation. Recording and live transcription still work via Web Speech API.
 
 **Summary:**
+
 - Use `Summarizer.create()` with `type: 'key-points'`, `length: 'medium'`, `format: 'markdown'`.
 - Feed the full transcript text as input.
 
 **Chapters:**
+
 - Use `LanguageModel.create()` with structured output.
 - Prompt: "Analyze this transcript and identify the main topic changes. Return chapter markers with titles and timestamps."
 - JSON Schema: `{ chapters: [{ title: string, start: number, end: number }] }`.
 
+### Structured Output Fallback
+
+Chrome AI structured output (JSON Schema via `responseConstraint`) is not guaranteed to produce valid JSON. Add a fallback parsing layer in `aiTranscriber.ts`:
+
+1. **First:** Parse the response as JSON using the schema constraint.
+2. **Second (if JSON parsing fails):** Use regex to extract `[MM:SS] text` patterns from the raw text response.
+3. **Third (if regex also fails):** Fall back to a single-segment transcript with the full text and `start: 0, end: duration`.
+4. Log the failure mode for debugging and quality tracking.
+
 ### Modules to Build/Modify
 
-| Module | Action | Description |
-|---|---|---|
-| `src/utils/transcriptStorage.ts` | **New** | OPFS storage utilities for transcript JSON files |
-| `src/utils/aiTranscriber.ts` | **New** | Deep module encapsulating all Chrome AI interactions: availability check, audio extraction, silence detection, transcription, summarization, chapter detection. Simple interface: `generateTranscript(webmBlob): Promise<RecordingTranscript>` with progress callbacks. |
-| `components/TranscriptPanel.vue` | **New** | UI component for displaying transcript, summary, and chapters with video seek integration via `provide/inject` |
-| `entrypoints/recordings/App.vue` | **Modify** | Add transcript button to cards, AI enablement banner, non-blocking generation flow, integrate transcript panel into modal with responsive layout, `provide` video ref, `chrome.storage.onChanged` listener |
-| `src/utils/storage.ts` | **Modify** | Add `hasTranscript` field to metadata, update delete to clean up transcripts |
-
-**Note: `entrypoints/background.ts` does NOT need modification.** All transcript generation runs directly in the recordings page context.
-
-### Deep Module: `aiTranscriber.ts`
-
-This is the key deep module. It encapsulates all Chrome AI complexity behind a clean interface:
-
-```typescript
-interface TranscriptionProgress {
-  stage: 'extracting' | 'transcribing' | 'summarizing' | 'chapters'
-  progress: number  // 0-1 (binary for stage-based tracking)
-}
-
-interface TranscriberOptions {
-  onProgress?: (progress: TranscriptionProgress) => void
-  signal?: AbortSignal
-}
-
-interface TranscriberResult {
-  segments: TranscriptSegment[]
-  summary: string
-  chapters: Chapter[]
-}
-
-interface TranscriberAvailability {
-  available: boolean
-  reason?: string  // e.g., 'Chrome AI not available on this device'
-}
-
-export async function checkAvailability(): Promise<TranscriberAvailability>
-export async function generateTranscript(webmBlob: Blob, options?: TranscriberOptions): Promise<TranscriberResult>
-```
-
-This module is testable in isolation (mock Chrome AI APIs) and its interface is stable regardless of whether the underlying implementation uses Prompt API, Summarizer API, or a future Whisper fallback.
+| Module                           | Action     | Description                                                                                                                                                                  |
+| -------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entrypoints/transcript/`        | **New**    | New recording + transcription page (replaces offscreen document)                                                                                                             |
+| `src/utils/transcriptStorage.ts` | **New**    | OPFS storage utilities for transcript JSON files                                                                                                                             |
+| `src/utils/aiTranscriber.ts`     | **New**    | Chrome AI interactions: availability check, summarization, chapter detection. Simple interface: `generateSummaryAndChapters(transcriptText): Promise<{ summary, chapters }>` |
+| `components/TranscriptPanel.vue` | **New**    | UI component for displaying transcript, summary, and chapters with video seek integration via `provide/inject`                                                               |
+| `entrypoints/recordings/App.vue` | **Modify** | Add transcript button to cards, AI enablement banner, integrate transcript panel into modal with responsive layout, `provide` video ref, `chrome.storage.onChanged` listener |
+| `entrypoints/background.ts`      | **Modify** | Remove offscreen document logic. Open transcript page instead. Handle stop/pause/resume messages.                                                                            |
+| `entrypoints/offscreen/`         | **Delete** | No longer needed — recording moved to transcript page                                                                                                                        |
+| `src/utils/storage.ts`           | **Modify** | Add `hasTranscript` field to metadata, update delete to clean up transcripts                                                                                                 |
 
 ### Manifest Changes
 
-- No new permissions needed (Chrome AI APIs don't require manifest permissions).
+- No new permissions needed (Web Speech API and Chrome AI APIs don't require manifest permissions).
 - May need to register for the origin trial token if the Prompt API requires it for extensions.
 
 ### Error Handling
 
-- **AI unavailable:** Show informative message with hardware requirements.
-- **Audio decode failure:** Show error, suggest trying a different recording.
-- **Silent recording:** Skip AI processing, show "No audio detected in this recording."
-- **Generation interrupted (tab closed):** Transcript is not saved if generation is incomplete. User can retry. `beforeunload` warning shown if tab is closed during generation.
+- **AI unavailable:** Recording and live transcription still work. Show message that summary + chapters require Chrome AI.
+- **SpeechRecognition errors:** Handle `no-speech` (silent recording), `audio-capture` (no audio device), `not-allowed` (permission denied), `network` (offline). Show appropriate messages.
+- **getDisplayMedia denied:** Show error, recording cannot start.
+- **Generation interrupted (tab closed):** Recording and transcript in progress are lost. `beforeunload` warning shown.
 - **Structured output parsing failure:** Fall back to regex extraction, then to single-segment fallback.
 - **Context window overflow:** For very long recordings, split transcript into chunks and summarize each chunk, then combine summaries (summary-of-summaries pattern).
 
 ### Performance Considerations
 
-- Transcription runs in the recordings page context (not background script) since Chrome AI APIs require a document context.
-- Long recordings (>30 min) may hit context window limits. Use the summary-of-summaries technique: transcribe in segments, summarize each segment, then summarize the combined summaries.
+- Recording runs in a visible page context. The page must stay open during recording.
+- Web Speech API runs in real-time with minimal CPU overhead.
+- Chrome AI summary + chapter generation runs after recording stops — does not block the recording itself.
+- Long recordings (>30 min) may hit Chrome AI context window limits for summary/chapters. Use the summary-of-summaries technique: split transcript into segments, summarize each segment, then summarize the combined summaries.
 - Model download (~22GB) happens once and is managed by Chrome. Show download progress to the user.
-- Non-blocking generation means the UI remains responsive during processing.
+
+### Dev Configuration
+
+To get the Chrome AI Prompt API to work during local development, the following flag must be added to `wxt.config.ts`:
+
+```typescript
+export default defineConfig({
+  webExt: {
+    chromiumArgs: [
+      '--disable-features=DisableLoadExtensionCommandLineSwitch',
+    ],
+  },
+})
+```
 
 ## Testing Decisions
 
 ### What to Test
 
-- **`aiTranscriber.ts`**: Unit test the module interface with mocked Chrome AI APIs. Test availability checks, error handling, and progress callback invocation. Test the structured output parsing for transcripts and chapters.
+- **`aiTranscriber.ts`**: Unit test the module interface with mocked Chrome AI APIs. Test availability checks, error handling, summarization, and chapter detection. Test the structured output parsing for summaries and chapters.
 - **`transcriptStorage.ts`**: Unit test OPFS read/write/delete operations with mock OPFS.
 - **`TranscriptPanel.vue`**: Component test with mocked transcript data. Verify timestamp click events emit correct seek events. Verify copy-to-clipboard functionality.
-- **Recordings page integration**: E2E test the full flow — click generate button, see progress, see transcript in panel, click segment to seek video.
+- **Recordings page integration**: E2E test the full flow — click transcript icon, see transcript in panel, click segment to seek video.
+- **Transcript page**: E2E test recording start → live transcription → recording stop → summary/chapter generation → redirect to library.
 
 ### What NOT to Test
 
 - Do not test the actual Chrome AI API calls — these depend on hardware, model availability, and are non-deterministic.
+- Do not test the actual Web Speech API — depends on browser support and audio input.
 - Do not test the quality of AI output (transcription accuracy, summary quality) — this is model-dependent.
 
 ### Prior Art
@@ -257,7 +270,7 @@ This module is testable in isolation (mock Chrome AI APIs) and its interface is 
 
 ## Out of Scope
 
-- **Real-time transcription during recording** — This is a future enhancement. Phase 1 is post-recording only.
+- **Post-recording transcription** — Phase 1 only supports real-time transcription during recording via the transcript page. Post-recording transcription (for recordings made without the transcript page) is a future Phase 2 feature using `browser-whisper`.
 - **Non-Chrome browser support** (Firefox, Safari) — Will be addressed in a future phase using `browser-whisper` as a fallback.
 - **Ollama / LM Studio integration** — Power-user feature for later. Phase 1 is Chrome AI only.
 - **Speaker diarization** (identifying different speakers) — Not in v1.
@@ -277,28 +290,32 @@ This module is testable in isolation (mock Chrome AI APIs) and its interface is 
 
 ### Risks and Mitigations
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| Chrome AI not available on user's device | High | Clear messaging, graceful disabled state. Plan Whisper fallback for v2. |
-| Transcription quality is poor for technical content | Medium | Allow users to retry. Consider prompt engineering improvements. |
-| Long recordings exceed context window | Medium | Implement chunking with summary-of-summaries pattern. |
-| Chrome AI API changes (still evolving) | Medium | The `aiTranscriber.ts` abstraction isolates us from API changes. |
-| Model download is large (22GB) and slow | Low | Show clear progress indicator. Model is cached after first download. |
+| Risk                                                                 | Impact | Mitigation                                                                                                                                              |
+| -------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chrome AI not available on user's device                             | Medium | Recording + live transcription still works via Web Speech API. Summary + chapters skipped with clear message. Plan Whisper fallback for v2.             |
+| Web Speech API transcription quality is poor                         | Medium | Depends on audio quality and language. Allow users to configure language. Consider Whisper fallback for v2.                                             |
+| User closes transcript page during recording                         | High   | `beforeunload` warning. Recording lost if they proceed. Acceptable for Phase 1.                                                                         |
+| Long recordings exceed Chrome AI context window for summary/chapters | Medium | Implement chunking with summary-of-summaries pattern (Phase 4).                                                                                         |
+| Chrome AI API changes (still evolving)                               | Medium | The `aiTranscriber.ts` abstraction isolates us from API changes.                                                                                        |
+| Model download is large (22GB) and slow                              | Low    | Show clear progress indicator. Model is cached after first download.                                                                                    |
+| SpeechRecognition not supported in extension context                 | High   | Verified: works in visible extension pages (popup, new tabs). Does NOT work in offscreen documents — which is why we moved recording to a visible page. |
 
 ### Future Phases
 
-**Phase 2: Real-time Transcription**
-- Capture audio chunks during recording in the offscreen document.
-- Send audio chunks to background via message passing.
-- Transcribe incrementally using Chrome Prompt API.
-- Store transcript progressively in OPFS.
-- User sees transcript ready immediately when recording stops.
+**Phase 2: Post-Recording Transcription Fallback**
+
+- For recordings that were made without the transcript page (e.g., legacy recordings).
+- Integrate `browser-whisper` (WebGPU + WebCodecs) for offline transcription.
+- "Generate Transcript" button on recording cards in the library.
+- Non-blocking generation with inline progress.
 
 **Phase 3: Cross-browser Support**
+
 - Integrate `browser-whisper` as fallback when Chrome AI is unavailable.
 - Detect browser capabilities and choose appropriate backend automatically.
 
 **Phase 4: External AI Integration**
+
 - Allow users to configure Ollama/LM Studio endpoints.
 - Support OpenAI-compatible APIs for users who want cloud quality.
 - Always default to local-first.

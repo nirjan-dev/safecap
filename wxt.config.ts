@@ -17,6 +17,9 @@ export default defineConfig({
     developmentIndicator: 'overlay',
   },
   webExt: {
-    chromiumArgs: ['--user-data-dir=./.wxt/chrome-data'],
+    chromiumArgs: [
+      '--user-data-dir=./.wxt/chrome-data',
+      '--disable-features=DisableLoadExtensionCommandLineSwitch',
+    ],
   },
 })

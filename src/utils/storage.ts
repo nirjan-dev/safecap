@@ -1,5 +1,6 @@
 import { storage } from '#imports'
 import { deleteRecordingBlob as deleteRecordingBlobFromDb, getRecordingBlob as getRecordingBlobFromDb } from './storageBackend'
+import { deleteTranscript as deleteTranscriptFromStorage } from './transcriptStorage'
 
 export interface Recording {
   id: string
@@ -10,6 +11,7 @@ export interface Recording {
   tabTitle?: string
   tabUrl?: string
   blob: string
+  hasTranscript?: boolean
 }
 
 export type RecordingMetadata = Omit<Recording, 'blob'>
@@ -90,6 +92,7 @@ export async function deleteRecording(id: string): Promise<void> {
   const filtered = recordings.filter(r => r.id !== id)
   await recordingsStorage.setValue(filtered)
   await deleteRecordingBlob(id)
+  await deleteTranscriptFromStorage(id)
 }
 
 // TODO: may want to get rid of this when going to prod because there won't be v1 videos to migrate
@@ -127,6 +130,7 @@ export async function migrateRecordingsToSeparateBlobs(): Promise<void> {
       size: r.size,
       tabTitle: r.tabTitle,
       tabUrl: r.tabUrl,
+      hasTranscript: (r as Recording).hasTranscript,
     })
   }
 

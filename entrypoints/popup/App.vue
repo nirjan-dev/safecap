@@ -1,9 +1,12 @@
 <script lang="ts" setup>
-type RecordingStatus = 'inactive' | 'recording' | 'paused'
+import { Icon } from '@iconify/vue'
+
+type RecordingStatus = 'inactive' | 'recording' | 'paused' | 'processing'
 
 const recordingState = ref<RecordingStatus>('inactive')
 const isStarting = ref(false)
 const micEnabled = ref(false)
+const transcriptTabId = ref<number | null>(null)
 
 async function checkMicPermission() {
   try {
@@ -55,10 +58,7 @@ async function startRecording() {
       type: 'START_RECORDING',
       tabInfo,
     })
-    if (response.success) {
-      recordingState.value = 'recording'
-    }
-    else {
+    if (!response.success) {
       console.error('Failed to start recording:', response.error)
     }
   }
@@ -71,21 +71,58 @@ function openRecordings() {
   browser.tabs.create({ url: browser.runtime.getURL('/recordings.html' as any) })
 }
 
-async function checkState() {
-  const response = await browser.runtime.sendMessage({ type: 'GET_STATE' })
-  if (response) {
-    recordingState.value = response.recordingState
+async function stopRecording() {
+  await browser.runtime.sendMessage({ type: 'STOP_RECORDING' })
+  recordingState.value = 'inactive'
+}
+
+async function checkTranscriptTab() {
+  const tabs = await browser.tabs.query({})
+  const transcriptTab = tabs.find(tab => tab.url?.includes('transcript.html'))
+  if (transcriptTab) {
+    transcriptTabId.value = transcriptTab.id ?? null
+  }
+  else {
+    transcriptTabId.value = null
+    recordingState.value = 'inactive'
+  }
+}
+
+async function loadStateFromStorage() {
+  try {
+    const result = await browser.storage.local.get(['recordingState', 'recordingId']) as { recordingState?: RecordingStatus, recordingId?: string }
+    if (result.recordingState && result.recordingState !== 'inactive') {
+      recordingState.value = result.recordingState
+    }
+  }
+  catch {
   }
 }
 
 onMounted(async () => {
   browser.runtime.onMessage.addListener((message) => {
     if (message.type === 'STATE_UPDATE') {
-      recordingState.value = message.state.recordingState
+      if (message.state) {
+        recordingState.value = message.state.recordingState || 'inactive'
+      }
+    }
+    else if (message.type === 'RECORDING_STOPPED') {
+      recordingState.value = 'inactive'
+      transcriptTabId.value = null
     }
   })
-  await checkState()
+
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.recordingState) {
+      recordingState.value = changes.recordingState.newValue as RecordingStatus
+    }
+  })
+
+  await checkTranscriptTab()
+  await loadStateFromStorage()
   await checkMicPermission()
+
+  setInterval(checkTranscriptTab, 2000)
 })
 </script>
 
@@ -97,13 +134,22 @@ onMounted(async () => {
 
     <div class="flex flex-col gap-2">
       <button
+        v-if="recordingState === 'inactive' || isStarting"
         class="btn btn-primary"
-        :disabled="recordingState !== 'inactive' || isStarting"
+        :disabled="isStarting"
         @click="startRecording"
       >
         <span v-if="isStarting" class="loading loading-spinner loading-sm" />
-        <span v-else-if="recordingState === 'inactive'">Record Demo</span>
-        <span v-else>Recording...</span>
+        <span v-else>Record Demo</span>
+      </button>
+
+      <button
+        v-else-if="recordingState === 'recording' || recordingState === 'paused'"
+        class="btn btn-error"
+        @click="stopRecording"
+      >
+        <Icon icon="lucide:square" class="w-4 h-4" />
+        Stop Recording
       </button>
 
       <button
@@ -122,7 +168,7 @@ onMounted(async () => {
       </button>
     </div>
 
-    <div v-if="recordingState !== 'inactive'" class="mt-4 text-center">
+    <div v-if="transcriptTabId && recordingState !== 'inactive'" class="mt-4 text-center">
       <span class="badge badge-error gap-2">
         <span class="w-2 h-2 bg-white rounded-full animate-pulse" />
         Recording in progress

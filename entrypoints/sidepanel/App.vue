@@ -24,6 +24,7 @@ const recordingSummary = ref('')
 
 let mediaRecorder: MediaRecorder | null = null
 let speechRecognition: any = null
+let currentAudioTrack: MediaStreamTrack | null = null
 let writableStream: FileSystemWritableFileStream | null = null
 let rootDir: FileSystemDirectoryHandle | null = null
 let recordingsDir: FileSystemDirectoryHandle | null = null
@@ -108,12 +109,17 @@ function mixAudio(tabStream: MediaStream, micStream: MediaStream | null): MediaS
   ])
 }
 
-function initSpeechRecognition() {
+function getMixedAudioTrack(stream: MediaStream): MediaStreamTrack | null {
+  return stream.getAudioTracks()[0] ?? null
+}
+
+function initSpeechRecognition(audioTrack: MediaStreamTrack | null) {
   if (!SpeechRecognition) {
     statusText.value = 'Speech recognition not supported'
     return
   }
 
+  currentAudioTrack = audioTrack
   speechRecognition = new SpeechRecognition()
   speechRecognition.continuous = true
   speechRecognition.interimResults = true
@@ -162,9 +168,11 @@ function initSpeechRecognition() {
 
   speechRecognition.onend = () => {
     if (state.value === 'recording') {
-      speechRecognition?.start()
+      speechRecognition?.start(currentAudioTrack ?? undefined)
     }
   }
+
+  speechRecognition.start(audioTrack ?? undefined)
 }
 
 async function startRecording() {
@@ -251,8 +259,7 @@ async function startRecording() {
     }
 
     if (mode.value !== 'video') {
-      initSpeechRecognition()
-      speechRecognition?.start()
+      initSpeechRecognition(getMixedAudioTrack(stream))
     }
 
     mediaRecorder.start(1000)
@@ -295,7 +302,7 @@ function resumeRecording() {
     mediaRecorder.resume()
     state.value = 'recording'
     pausedDuration += Date.now()
-    speechRecognition?.start()
+    speechRecognition?.start(currentAudioTrack ?? undefined)
   }
 }
 
@@ -306,6 +313,7 @@ function stopRecording() {
     mediaRecorder = null
     speechRecognition?.stop()
     speechRecognition = null
+    currentAudioTrack = null
   }
   state.value = 'processing'
   statusText.value = 'Processing...'

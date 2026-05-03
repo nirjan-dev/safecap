@@ -1,9 +1,12 @@
+import { ChromeSummarizerBackend, summarizeLongText } from './summarizerBackend'
+
 export type SummaryStatus = 'idle' | 'checking' | 'downloading' | 'ready' | 'summarizing' | 'unavailable'
 
 export interface SummaryProgress {
   status: SummaryStatus
   progress: number
   error?: string
+  message?: string
 }
 
 export interface AvailabilityResult {
@@ -68,26 +71,29 @@ export async function generateRecordingSummary(
     return { summary: '' }
   }
 
-  if (!isSummarizerSupported()) {
-    return { summary: '' }
-  }
+  const backend = new ChromeSummarizerBackend()
 
   onProgress?.({ status: 'checking', progress: 0 })
 
-  try {
-    const availability = await Summarizer.availability()
+  const isAvailable = await backend.isAvailable()
+  if (!isAvailable) {
+    onProgress?.({ status: 'unavailable', progress: 0, error: 'Summarizer is not available on this device' })
+    return { summary: '' }
+  }
 
-    if (availability === 'unavailable') {
-      onProgress?.({ status: 'unavailable', progress: 0, error: 'Summarizer is not available on this device' })
-      return { summary: '' }
-    }
+  try {
+    // Check if model needs downloading
+    const availability = await (globalThis as any).Summarizer.availability()
 
     if (availability === 'downloadable' || availability === 'downloading') {
-      const summarizer = await Summarizer.create({
+      onProgress?.({ status: 'downloading', progress: 0 })
+
+      // Create a temporary summarizer just to trigger the download with progress
+      await (globalThis as any).Summarizer.create({
         type: 'key-points',
         format: 'markdown',
         length: 'medium',
-        monitor(m) {
+        monitor(m: any) {
           m.addEventListener('downloadprogress', (e: Event) => {
             const progressEvent = e as unknown as { loaded: number }
             const progress = Math.round(progressEvent.loaded * 100)
@@ -95,21 +101,14 @@ export async function generateRecordingSummary(
           })
         },
       })
-
-      onProgress?.({ status: 'summarizing', progress: 100 })
-      const summary = await summarizer.summarize(transcriptText)
-      onProgress?.({ status: 'ready', progress: 100 })
-      return { summary }
     }
 
-    onProgress?.({ status: 'summarizing', progress: 0 })
-    const summarizer = await Summarizer.create({
-      type: 'key-points',
-      format: 'markdown',
-      length: 'medium',
+    onProgress?.({ status: 'summarizing', progress: 10 })
+
+    const summary = await summarizeLongText(transcriptText, backend, (p) => {
+      onProgress?.(p)
     })
 
-    const summary = await summarizer.summarize(transcriptText)
     onProgress?.({ status: 'ready', progress: 100 })
     return { summary }
   }

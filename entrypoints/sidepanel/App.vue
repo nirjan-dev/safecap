@@ -652,9 +652,15 @@ onUnmounted(() => {
           <div class="flex items-center gap-3">
             <span class="loading loading-spinner loading-sm" />
             <span class="text-sm">
-              {{ summaryProgress.status === 'checking' ? 'Checking AI...' : 'Generating summary...' }}
+              {{ summaryProgress.status === 'checking' ? 'Checking AI...' : (summaryProgress.message || 'Generating summary...') }}
             </span>
           </div>
+          <progress
+            v-if="summaryProgress.status === 'summarizing' && summaryProgress.progress > 0"
+            class="progress progress-primary mt-2"
+            :value="summaryProgress.progress"
+            max="100"
+          />
         </div>
 
         <div v-else-if="summaryProgress.status === 'unavailable'" class="bg-base-300 rounded-lg p-4">

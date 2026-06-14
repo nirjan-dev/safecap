@@ -2,7 +2,7 @@
 import type { SummaryProgress } from '@/src/utils/aiTranscriber'
 import type { RecordingTranscript, TranscriptSegment } from '@/src/utils/transcriptStorage'
 import { Icon } from '@iconify/vue'
-import { generateRecordingSummary } from '@/src/utils/aiTranscriber'
+import { generateRecordingInsights } from '@/src/utils/aiTranscriber'
 import { getTranscript, saveTranscript } from '@/src/utils/transcriptStorage'
 
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -17,6 +17,7 @@ const MIC_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
 
 type RecordingMode = 'audio' | 'video' | 'both'
 type RecordingState = 'idle' | 'recording' | 'paused' | 'processing'
+interface ActiveTabInfo { title?: string, url?: string }
 
 const mode = ref<RecordingMode>('both')
 const state = ref<RecordingState>('idle')
@@ -29,7 +30,7 @@ const micEnabled = ref(false)
 const isRequestingMic = ref(false)
 const micPermissionState = ref<PermissionState>('prompt')
 const micErrorText = ref('')
-const currentTabInfo = ref<{ title?: string, url?: string } | null>(null)
+const currentTabInfo = ref<ActiveTabInfo | null>(null)
 const showPreview = ref(false)
 const previewUrl = ref<string | null>(null)
 const summaryProgress = ref<SummaryProgress>({ status: 'idle', progress: 0 })
@@ -81,11 +82,58 @@ function generateId(): string {
   return `rec_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 }
 
-function generateRecordingName(tabTitle?: string): string {
-  if (tabTitle) {
-    return tabTitle
+function formatRecordingTimestamp(timestamp: number): string {
+  const date = new Date(timestamp || Date.now())
+  const pad = (value: number) => value.toString().padStart(2, '0')
+
+  const datePart = [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join('-')
+
+  return `${datePart} ${pad(date.getHours())}-${pad(date.getMinutes())}`
+}
+
+function cleanRecordingTitle(title?: string): string {
+  return (title || '')
+    .replace(/[\\/:*?"<>|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 90)
+}
+
+function isInternalCaptureTitle(title: string): boolean {
+  const normalized = title.trim()
+
+  return !normalized
+    || /^web-contents-media-stream\b/i.test(normalized)
+    || /^[a-f0-9]{16,}$/i.test(normalized)
+    || /^screen:\d+(?::\d+)?$/i.test(normalized)
+    || /^window:\d+(?::\d+)?$/i.test(normalized)
+}
+
+function normalizeTabInfo(tabInfo: ActiveTabInfo | null | undefined): ActiveTabInfo | null {
+  const title = cleanRecordingTitle(tabInfo?.title)
+  const url = tabInfo?.url
+
+  if (!title && !url) {
+    return null
   }
-  return `Recording ${new Date(recordingStartTime).toLocaleString()}`
+
+  if (url?.startsWith(browser.runtime.getURL(''))) {
+    return null
+  }
+
+  return {
+    title: title || undefined,
+    url,
+  }
+}
+
+function generateRecordingName(tabTitle?: string): string {
+  const title = cleanRecordingTitle(tabTitle) || (mode.value === 'audio' ? 'Audio Recording' : 'Recording')
+  return `${title} - ${formatRecordingTimestamp(recordingStartTime)}`
 }
 
 function formatDuration(seconds: number): string {
@@ -204,9 +252,69 @@ async function getRecordingsDirectory(): Promise<FileSystemDirectoryHandle> {
 }
 
 async function getTabInfo() {
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true })
-  if (tab?.title && tab?.url) {
-    currentTabInfo.value = { title: tab.title, url: tab.url }
+  currentTabInfo.value = null
+
+  try {
+    const backgroundTabInfo = normalizeTabInfo(await browser.runtime.sendMessage({
+      type: 'GET_ACTIVE_TAB_INFO',
+    }))
+
+    if (backgroundTabInfo) {
+      currentTabInfo.value = backgroundTabInfo
+      logDebug('recording', 'active tab metadata loaded from background', backgroundTabInfo)
+      return
+    }
+  }
+  catch (error) {
+    logDebug('recording', 'failed to read active tab metadata from background', error)
+  }
+
+  try {
+    const [tab] = await browser.tabs.query({ active: true, lastFocusedWindow: true })
+    const tabInfo = normalizeTabInfo({
+      title: tab?.title,
+      url: tab?.url,
+    })
+
+    if (tabInfo) {
+      currentTabInfo.value = tabInfo
+      logDebug('recording', 'active tab metadata loaded from sidepanel', tabInfo)
+    }
+  }
+  catch (error) {
+    logDebug('recording', 'failed to read active tab metadata', error)
+  }
+}
+
+function getCaptureTitleFromStream(stream: MediaStream): string {
+  const label = stream.getVideoTracks()[0]?.label ?? ''
+  if (isInternalCaptureTitle(label)) {
+    return ''
+  }
+
+  const title = label
+    .replace(/^(chrome\s+tab|browser|tab|window|screen)\s*[:|-]\s*/i, '')
+    .replace(/^(screen|window)\s*\d*\s*[:|-]?\s*/i, '')
+
+  if (isInternalCaptureTitle(title) || /^[a-z]+:\d/i.test(title.trim())) {
+    return ''
+  }
+
+  return cleanRecordingTitle(title)
+}
+
+function updateTabInfoFromCaptureStream(stream: MediaStream) {
+  const title = getCaptureTitleFromStream(stream)
+  if (!title) {
+    return
+  }
+
+  const current = currentTabInfo.value
+  const shouldKeepUrl = !current?.title || cleanRecordingTitle(current.title) === title
+
+  currentTabInfo.value = {
+    title,
+    url: shouldKeepUrl ? current?.url : undefined,
   }
 }
 
@@ -677,6 +785,7 @@ async function startRecording() {
     recordingChunkCount = 0
     recordedBytes = 0
 
+    currentTabInfo.value = null
     await getTabInfo()
 
     let stream: MediaStream
@@ -692,6 +801,7 @@ async function startRecording() {
       } as any)
 
       activeSourceStreams.push(displayStream)
+      updateTabInfoFromCaptureStream(displayStream)
       logDebug('recording', 'display stream acquired', getStreamDebugInfo(displayStream))
 
       const displayVideoTrack = displayStream.getVideoTracks()[0]
@@ -732,6 +842,7 @@ async function startRecording() {
       } as any)
 
       activeSourceStreams.push(stream)
+      updateTabInfoFromCaptureStream(stream)
       logDebug('recording', 'display stream acquired', getStreamDebugInfo(stream))
 
       const displayVideoTrack = stream.getVideoTracks()[0]
@@ -945,14 +1056,15 @@ async function saveRecording() {
 
     statusText.value = 'Processing...'
 
-    const transcriptText = segments.value.map(s => s.text).join(' ')
+    const transcriptSegments = segments.value.map(segment => ({ ...segment }))
+    const transcriptText = transcriptSegments.map(s => s.text).join(' ')
 
     logDebug('recording', 'saving recording metadata', {
       recordingId: currentRecordingId,
       name,
       duration: recordingDuration,
       size,
-      transcriptSegments: segments.value.length,
+      transcriptSegments: transcriptSegments.length,
       transcriptCharacters: transcriptText.length,
       tabTitle: currentTabInfo.value?.title,
     })
@@ -960,7 +1072,7 @@ async function saveRecording() {
     const fullTranscript: RecordingTranscript = {
       recordingId: currentRecordingId,
       generatedAt: Date.now(),
-      segments: segments.value,
+      segments: transcriptSegments,
       summary: '',
       chapters: [],
     }
@@ -1003,7 +1115,7 @@ async function saveRecording() {
         recordingId: currentRecordingId,
         transcriptCharacters: transcriptText.length,
       })
-      generateSummaryInBackground(transcriptText, currentRecordingId)
+      generateSummaryInBackground(transcriptText, currentRecordingId, transcriptSegments)
     }
     else {
       logDebug('summary', 'summary skipped because transcript is empty', {
@@ -1019,7 +1131,11 @@ async function saveRecording() {
   }
 }
 
-async function generateSummaryInBackground(transcriptText: string, recordingId: string) {
+async function generateSummaryInBackground(
+  transcriptText: string,
+  recordingId: string,
+  transcriptSegments: TranscriptSegment[],
+) {
   summaryProgress.value = { status: 'checking', progress: 0 }
 
   logDebug('summary', 'checking summarizer availability', {
@@ -1048,7 +1164,7 @@ async function generateSummaryInBackground(transcriptText: string, recordingId: 
       return
     }
 
-    const { summary } = await generateRecordingSummary(transcriptText, (p) => {
+    const { summary, chapters } = await generateRecordingInsights(transcriptSegments, transcriptText, (p) => {
       summaryProgress.value = p
       logDebug('summary', 'summary progress update', {
         recordingId,
@@ -1062,7 +1178,7 @@ async function generateSummaryInBackground(transcriptText: string, recordingId: 
         statusText.value = `Downloading AI model... ${p.progress}%`
       }
       else if (p.status === 'summarizing') {
-        statusText.value = 'Generating summary...'
+        statusText.value = p.message || 'Generating summary...'
       }
       else if (p.status === 'unavailable') {
         statusText.value = 'AI Summary unavailable'
@@ -1076,13 +1192,18 @@ async function generateSummaryInBackground(transcriptText: string, recordingId: 
     logDebug('summary', 'summary generated', {
       recordingId,
       summaryCharacters: summary.length,
+      chapterCount: chapters.length,
     })
 
     const existingTranscript = await getTranscript(recordingId)
     if (existingTranscript) {
       existingTranscript.summary = summary
+      existingTranscript.chapters = chapters
       await saveTranscript(recordingId, existingTranscript)
-      logDebug('summary', 'summary saved to transcript', { recordingId })
+      logDebug('summary', 'summary and chapters saved to transcript', {
+        recordingId,
+        chapterCount: chapters.length,
+      })
     }
     else {
       logDebug('summary', 'summary was generated but transcript file was missing', { recordingId })

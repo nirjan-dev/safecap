@@ -5,7 +5,7 @@ import { defineConfig } from 'wxt'
 export default defineConfig({
   modules: ['@wxt-dev/module-vue', '@wxt-dev/auto-icons'],
   manifest: {
-    permissions: ['activeTab', 'downloads', 'storage', 'offscreen', 'unlimitedStorage', 'tabCapture', 'sidePanel', 'audio', 'activeTab', 'background'],
+    permissions: ['activeTab', 'downloads', 'storage', 'offscreen', 'unlimitedStorage', 'tabCapture', 'sidePanel', 'audio', 'tabs', 'background'],
   },
   vite: (_env) => {
     return {

@@ -12,7 +12,15 @@ export interface SummarizerBackend {
   isAvailable: () => Promise<boolean>
 
   /** Summarize a single chunk of text. The caller handles chunking. */
-  summarize: (text: string) => Promise<string>
+  summarize: (text: string, context?: string) => Promise<string>
+}
+
+interface SummarizerOptions {
+  sharedContext?: string
+  type?: 'key-points' | 'tldr' | 'teaser' | 'headline'
+  format?: 'markdown' | 'plain-text'
+  length?: 'short' | 'medium' | 'long'
+  preference?: 'auto' | 'speed' | 'capability'
 }
 
 /**
@@ -21,6 +29,8 @@ export interface SummarizerBackend {
  */
 export class ChromeSummarizerBackend implements SummarizerBackend {
   readonly name = 'Chrome AI'
+
+  constructor(private readonly options: SummarizerOptions = {}) {}
 
   async isAvailable(): Promise<boolean> {
     if (!('Summarizer' in globalThis)) {
@@ -36,15 +46,20 @@ export class ChromeSummarizerBackend implements SummarizerBackend {
     }
   }
 
-  async summarize(text: string): Promise<string> {
+  async summarize(text: string, context?: string): Promise<string> {
     const summarizer = await (globalThis as any).Summarizer.create({
       type: 'key-points',
       format: 'markdown',
       length: 'medium',
+      ...this.options,
     })
 
-    const summary = await summarizer.summarize(text)
-    return summary
+    try {
+      return await summarizer.summarize(text, context ? { context } : undefined)
+    }
+    finally {
+      summarizer.destroy?.()
+    }
   }
 }
 

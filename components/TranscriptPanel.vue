@@ -119,17 +119,22 @@ function confirmDelete() {
         </button>
       </div>
 
-      <div v-else-if="activeTab === 'chapters'" class="space-y-1">
+      <div v-else-if="activeTab === 'chapters'" class="space-y-2">
         <div
           v-for="(chapter, index) in transcript.chapters"
           :key="index"
-          class="flex items-center gap-2 p-2 rounded hover:bg-base-300 cursor-pointer"
+          class="p-2 rounded hover:bg-base-300 cursor-pointer"
           @click="handleSeek(chapter.start)"
         >
-          <span class="text-base-content/40 text-xs whitespace-nowrap font-mono">
-            [{{ formatDuration(chapter.start) }}]
-          </span>
-          <span class="text-sm font-medium">{{ chapter.title }}</span>
+          <div class="flex items-center gap-2">
+            <span class="text-base-content/40 text-xs whitespace-nowrap font-mono">
+              [{{ formatDuration(chapter.start) }}]
+            </span>
+            <span class="text-sm font-medium">{{ chapter.title }}</span>
+          </div>
+          <p v-if="chapter.summary" class="text-xs text-base-content/60 mt-1 pl-14">
+            {{ chapter.summary }}
+          </p>
         </div>
         <div
           v-if="transcript.chapters.length === 0"

@@ -3,6 +3,7 @@ import type { SummaryProgress } from '@/src/utils/aiTranscriber'
 import type { RecordingTranscript, TranscriptSegment } from '@/src/utils/transcriptStorage'
 import { Icon } from '@iconify/vue'
 import { generateRecordingInsights } from '@/src/utils/aiTranscriber'
+import { renderSummaryToHtml } from '@/src/utils/renderMarkdown'
 import { getTranscript, saveTranscript } from '@/src/utils/transcriptStorage'
 
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -1500,9 +1501,7 @@ onUnmounted(() => {
         </div>
 
         <div v-else-if="recordingSummary" class="bg-base-300 rounded-lg p-4">
-          <div class="prose prose-sm max-w-none">
-            {{ recordingSummary }}
-          </div>
+          <div class="summary-content" v-html="renderSummaryToHtml(recordingSummary)" />
         </div>
       </div>
 
@@ -1525,3 +1524,26 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.summary-content ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+
+.summary-content li {
+  margin-bottom: 0.25rem;
+}
+
+.summary-content li:last-child {
+  margin-bottom: 0;
+}
+
+.summary-content p {
+  margin-bottom: 0.5rem;
+}
+
+.summary-content p:last-child {
+  margin-bottom: 0;
+}
+</style>

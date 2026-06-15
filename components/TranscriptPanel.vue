@@ -2,6 +2,7 @@
 import type { RecordingTranscript } from '@/src/utils/transcriptStorage'
 import { Icon } from '@iconify/vue'
 import { ref } from 'vue'
+import { renderSummaryToHtml } from '@/src/utils/renderMarkdown'
 
 const props = defineProps<{
   transcript: RecordingTranscript
@@ -101,7 +102,7 @@ function confirmDelete() {
 
       <div v-else-if="activeTab === 'summary'" class="space-y-3">
         <div v-if="transcript.summary" class="prose prose-sm max-w-none">
-          <p>{{ transcript.summary }}</p>
+          <div class="summary-content" v-html="renderSummaryToHtml(transcript.summary)" />
         </div>
         <div
           v-else
@@ -132,9 +133,9 @@ function confirmDelete() {
             </span>
             <span class="text-sm font-medium">{{ chapter.title }}</span>
           </div>
-          <p v-if="chapter.summary" class="text-xs text-base-content/60 mt-1 pl-14">
-            {{ chapter.summary }}
-          </p>
+          <div v-if="chapter.summary" class="text-xs text-base-content/60 mt-1 pl-14 summary-content">
+            <span v-html="renderSummaryToHtml(chapter.summary)" />
+          </div>
         </div>
         <div
           v-if="transcript.chapters.length === 0"
@@ -168,3 +169,26 @@ function confirmDelete() {
     </dialog>
   </div>
 </template>
+
+<style scoped>
+.summary-content ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+
+.summary-content li {
+  margin-bottom: 0.25rem;
+}
+
+.summary-content li:last-child {
+  margin-bottom: 0;
+}
+
+.summary-content p {
+  margin-bottom: 0.5rem;
+}
+
+.summary-content p:last-child {
+  margin-bottom: 0;
+}
+</style>

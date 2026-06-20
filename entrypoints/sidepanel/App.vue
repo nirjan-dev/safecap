@@ -1274,9 +1274,10 @@ onUnmounted(() => {
 
 <template>
   <div class="flex flex-col h-screen p-4 bg-base-200">
-    <div class="flex items-center justify-between mb-4">
-      <h1 class="text-xl font-bold">
+    <div class="flex items-center justify-center mb-4 mt-2">
+      <h1 class="text-xl font-bold text-center">
         SafeCap
+        <img src="/icon.svg" class="inline-block w-6 h-6 ml-1">
       </h1>
       <div v-if="state === 'recording' || state === 'paused'" class="flex items-center gap-2">
         <span class="w-2 h-2 bg-error rounded-full animate-pulse" />
@@ -1285,7 +1286,9 @@ onUnmounted(() => {
         </span>
       </div>
     </div>
-
+    <p class="text-lg text-center">
+      Secure &#9679; Private &#9679; Local
+    </p>
     <div v-if="state === 'idle' && !showPreview" class="flex flex-col items-center justify-center flex-1 gap-6">
       <div class="text-center">
         <p class="text-base-content/70 mb-4">

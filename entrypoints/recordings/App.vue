@@ -457,7 +457,7 @@ onMounted(async () => {
 
       <div class="flex items-center justify-between mb-8">
         <h1 class="text-3xl font-bold">
-          My Recordings
+          Saved Recordings
         </h1>
         <div v-if="loading" class="badge badge-lg badge-neutral">
           <span class="loading loading-spinner loading-xs mr-1" />
@@ -551,11 +551,11 @@ onMounted(async () => {
           </button>
         </div>
 
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4 min-h-screen">
           <div
             v-for="recording in paginatedRecordings"
             :key="recording.id"
-            class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow"
+            class="card h-fit bg-base-100 shadow-sm hover:shadow-md transition-shadow"
           >
             <div class="card-body p-5">
               <div class="flex items-start justify-between gap-4">
@@ -588,10 +588,6 @@ onMounted(async () => {
                     <Icon icon="lucide:external-link" class="w-3 h-3 flex-shrink-0" />
                     <span class="truncate">{{ recording.tabUrl }}</span>
                   </a>
-                  <div v-if="recording.hasTranscript" class="badge badge-primary badge-outline badge-sm mt-3">
-                    <Icon icon="lucide:list-ordered" class="w-3 h-3" />
-                    Transcript ready
-                  </div>
                 </div>
                 <div class="flex flex-col gap-2">
                   <button

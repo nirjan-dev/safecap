@@ -34,7 +34,7 @@ const playbackSpeed = ref(1)
 const currentTime = ref(0)
 
 const pageSize = 12
-const playbackSpeeds = [0.5, 0.75, 1, 1.25, 1.5, 2]
+const playbackSpeeds = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4]
 
 function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60)
@@ -752,6 +752,7 @@ onMounted(async () => {
             <TranscriptPanel
               :transcript="transcript"
               :video-ref="videoRef ?? undefined"
+              :current-time="currentTime"
               @seek-to="handleSeekTo"
               @delete-transcript="handleDeleteTranscript"
             />

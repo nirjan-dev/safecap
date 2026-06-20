@@ -6,46 +6,87 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
+function renderInlineMarkdown(text: string): string {
+  return escapeHtml(text)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+}
+
 export function renderSummaryToHtml(text: string): string {
   if (!text)
     return ''
 
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
-  const items: string[] = []
+  const result: string[] = []
+  const paragraphLines: string[] = []
+  let activeList: 'ul' | 'ol' | null = null
 
-  for (const line of lines) {
+  function closeList() {
+    if (activeList) {
+      result.push(`</${activeList}>`)
+      activeList = null
+    }
+  }
+
+  function flushParagraph() {
+    if (paragraphLines.length === 0) {
+      return
+    }
+
+    result.push(`<p>${renderInlineMarkdown(paragraphLines.join(' '))}</p>`)
+    paragraphLines.length = 0
+  }
+
+  function openList(type: 'ul' | 'ol') {
+    flushParagraph()
+
+    if (activeList === type) {
+      return
+    }
+
+    closeList()
+    result.push(`<${type}>`)
+    activeList = type
+  }
+
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim()
+    if (!line) {
+      flushParagraph()
+      closeList()
+      continue
+    }
+
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)/)
+    if (headingMatch) {
+      flushParagraph()
+      closeList()
+
+      const level = Math.min(headingMatch[1].length + 2, 6)
+      result.push(`<h${level}>${renderInlineMarkdown(headingMatch[2])}</h${level}>`)
+      continue
+    }
+
     const bulletMatch = line.match(/^[*\-]\s+(.*)/)
     if (bulletMatch) {
-      items.push(`<li>${escapeHtml(bulletMatch[1])}</li>`)
+      openList('ul')
+      result.push(`<li>${renderInlineMarkdown(bulletMatch[1])}</li>`)
+      continue
     }
-    else {
-      items.push(`<p>${escapeHtml(line)}</p>`)
+
+    const numberedMatch = line.match(/^\d+[.)]\s+(.*)/)
+    if (numberedMatch) {
+      openList('ol')
+      result.push(`<li>${renderInlineMarkdown(numberedMatch[1])}</li>`)
+      continue
     }
+
+    closeList()
+    paragraphLines.push(line)
   }
 
-  if (items.length === 0)
-    return escapeHtml(text)
+  flushParagraph()
+  closeList()
 
-  const result: string[] = []
-  let inList = false
-  for (const item of items) {
-    if (item.startsWith('<li')) {
-      if (!inList) {
-        result.push('<ul>')
-        inList = true
-      }
-      result.push(item)
-    }
-    else {
-      if (inList) {
-        result.push('</ul>')
-        inList = false
-      }
-      result.push(item)
-    }
-  }
-  if (inList)
-    result.push('</ul>')
-
-  return result.join('\n')
+  return result.length > 0 ? result.join('\n') : escapeHtml(text)
 }

@@ -1220,32 +1220,14 @@ async function generateSummaryInBackground(
   }
 }
 
-function clearRecording() {
-  logDebug('recording', 'clearing current recording preview/state', {
-    recordingId: currentRecordingId,
-  })
+function openRecordings(recordingId?: string) {
+  const url = new URL(browser.runtime.getURL('/recordings.html'))
 
-  if (previewUrl.value) {
-    URL.revokeObjectURL(previewUrl.value)
-    previewUrl.value = null
+  if (recordingId) {
+    url.searchParams.set('recordingId', recordingId)
   }
-  showPreview.value = false
-  segments.value = []
-  interimTranscript.value = ''
-  duration.value = 0
-  statusText.value = ''
-  currentBlob = null
-  currentRecordingId = ''
-  recordingStartTime = 0
-  recordingStoppedAt = 0
-  pausedDuration = 0
-  pauseStartedAt = 0
-  recordingSummary.value = ''
-  summaryProgress.value = { status: 'idle', progress: 0 }
-}
 
-function openRecordings() {
-  browser.tabs.create({ url: browser.runtime.getURL('/recordings.html' as any) })
+  browser.tabs.create({ url: url.toString() })
 }
 
 onMounted(() => {
@@ -1279,12 +1261,12 @@ onUnmounted(() => {
         SafeCap
         <img src="/icon.svg" class="inline-block w-6 h-6 ml-1">
       </h1>
-      <div v-if="state === 'recording' || state === 'paused'" class="flex items-center gap-2">
-        <span class="w-2 h-2 bg-error rounded-full animate-pulse" />
-        <span class="badge badge-error badge-sm">
-          {{ state === 'paused' ? 'Paused' : 'Recording' }}
-        </span>
-      </div>
+    </div>
+    <div v-if="state === 'recording' || state === 'paused'" class="flex items-center gap-2 my-2 justify-center">
+      <span class="w-2 h-2 bg-error rounded-full animate-pulse" />
+      <span class="badge badge-error badge-sm">
+        {{ state === 'paused' ? 'Paused' : 'Recording' }}
+      </span>
     </div>
     <p class="text-lg text-center">
       Secure &#9679; Private &#9679; Local
@@ -1352,7 +1334,7 @@ onUnmounted(() => {
 
       <button
         class="btn btn-ghost btn-sm"
-        @click="openRecordings"
+        @click="openRecordings()"
       >
         <Icon icon="lucide:folder-open" class="w-4 h-4" />
         View All Recordings
@@ -1448,16 +1430,23 @@ onUnmounted(() => {
         {{ statusText }}
       </div>
 
-      <div class="flex gap-2 justify-center">
-        <button
-          class="btn btn-sm btn-ghost"
-          @click="clearRecording"
-        >
-          <Icon icon="lucide:trash-2" class="w-4 h-4" />
-          Clear
-        </button>
+      <div class="flex flex-wrap gap-2 justify-center">
         <button
           class="btn btn-sm btn-primary"
+          @click="openRecordings(currentRecordingId)"
+        >
+          <Icon icon="lucide:play-square" class="w-4 h-4" />
+          View Recording
+        </button>
+        <button
+          class="btn btn-sm btn-secondary"
+          @click="openRecordings()"
+        >
+          <Icon icon="lucide:folder-open" class="w-4 h-4" />
+          View All
+        </button>
+        <button
+          class="btn btn-sm btn-ghost"
           @click="startRecording"
         >
           <Icon icon="lucide:circle" class="w-4 h-4" />

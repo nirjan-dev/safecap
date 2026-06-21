@@ -5,7 +5,10 @@ import { defineConfig } from 'wxt'
 export default defineConfig({
   modules: ['@wxt-dev/module-vue', '@wxt-dev/auto-icons'],
   manifest: {
-    permissions: ['activeTab', 'downloads', 'storage', 'offscreen', 'unlimitedStorage', 'tabCapture', 'sidePanel', 'audio', 'tabs', 'background'],
+    name: 'SafeCap',
+    description: 'Private local screen recorder for demos, bug reports, and browser meetings.',
+    homepage_url: 'https://safecap.nirjan.net/',
+    permissions: ['downloads', 'storage', 'unlimitedStorage', 'sidePanel', 'tabs'],
   },
   vite: (_env) => {
     return {

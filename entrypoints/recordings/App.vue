@@ -32,9 +32,11 @@ const deletingRecording = ref<Recording | null>(null)
 const deletingRecordingId = ref<string | null>(null)
 const playbackSpeed = ref(1)
 const currentTime = ref(0)
+const requestedRecordingId = new URLSearchParams(window.location.search).get('recordingId')
 
 const pageSize = 12
 const playbackSpeeds = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4]
+let requestedRecordingOpened = false
 
 function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60)
@@ -144,6 +146,22 @@ async function loadRecordings() {
 
   recordings.value = loaded.sort((a, b) => b.createdAt - a.createdAt)
   loading.value = false
+}
+
+async function openRequestedRecording() {
+  if (!requestedRecordingId || requestedRecordingOpened) {
+    return
+  }
+
+  const recordingIndex = recordings.value.findIndex(recording => recording.id === requestedRecordingId)
+  if (recordingIndex === -1) {
+    errorMessage.value = 'Requested recording not found'
+    return
+  }
+
+  requestedRecordingOpened = true
+  currentPage.value = Math.floor(recordingIndex / pageSize) + 1
+  await playRecording(recordings.value[recordingIndex])
 }
 
 async function openTranscriptPanel(recording: Recording) {
@@ -423,6 +441,7 @@ async function handleDownloadAiModel() {
 
 onMounted(async () => {
   await loadRecordings()
+  await openRequestedRecording()
 
   const availability = await checkAvailability()
   aiAvailable.value = availability.available
@@ -551,7 +570,7 @@ onMounted(async () => {
           </button>
         </div>
 
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4 min-h-screen">
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4 min-h-screen auto-rows-min">
           <div
             v-for="recording in paginatedRecordings"
             :key="recording.id"

@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en" data-theme="night">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="SafeCap is a local-first Chrome extension for recording demos, bug reports, and browser meetings without uploading your recordings to the cloud."
+    />
+    <meta name="theme-color" content="#0f172a" />
+    <meta property="og:title" content="SafeCap - Private Browser Recording" />
+    <meta
+      property="og:description"
+      content="Record demos and meetings without giving up control of your data. No accounts, no telemetry, no SafeCap servers."
+    />
+    <meta property="og:type" content="website" />
+    <title>SafeCap - Private Browser Recording</title>
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav wrap" aria-label="Primary navigation">
+        <a class="brand" href="#top" aria-label="SafeCap home">
+          <img class="brand-logo" src="icon.svg" width="32" height="32" alt="" aria-hidden="true" />
+          <span>SafeCap</span>
+        </a>
+        <div class="nav-links" aria-label="Page sections">
+          <a href="#features">Features</a>
+          <a href="#use-cases">Use Cases</a>
+          <a href="#privacy">Privacy</a>
+          <a href="#faq">FAQ</a>
+        </div>
+        <a class="nav-cta" href="https://chromewebstore.google.com/detail/safecap/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          >Add to Chrome</a
+        >
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero wrap section-pad">
+        <div class="hero-copy">
+          <p class="eyebrow">Local-first recording for Chrome</p>
+          <h1>Record demos and meetings without giving up your data.</h1>
+          <p class="hero-text">
+            SafeCap helps developers, founders, and privacy-conscious teams capture screen recordings, narration, and
+            browser meetings while keeping the files on their own machine.
+          </p>
+          <div class="hero-actions" aria-label="Primary actions">
+            <a
+              class="button button-primary"
+              href="https://chromewebstore.google.com/detail/safecap/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              >Add to Chrome</a
+            >
+            <a class="button button-secondary" href="privacy.html">Read the privacy policy</a>
+          </div>
+          <div class="trust-strip" aria-label="Product guarantees">
+            <span>No account</span>
+            <span>No SafeCap cloud</span>
+            <span>No telemetry</span>
+          </div>
+        </div>
+
+        <div class="hero-panel" aria-label="SafeCap product preview">
+          <div class="panel-topbar">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="capture-card">
+            <div>
+              <p class="card-kicker">Recording</p>
+              <h2>Screen + mic</h2>
+            </div>
+            <div class="recording-dot" aria-hidden="true"></div>
+          </div>
+          <div class="timer-card">
+            <span class="timer">12:48</span>
+            <span class="timer-label">Private WebM recording</span>
+          </div>
+          <div class="waveform" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="local-note">
+            <span class="lock" aria-hidden="true"></span>
+            Stored locally in your browser
+          </div>
+        </div>
+      </section>
+
+      <section class="problem section-pad muted-section">
+        <div class="wrap two-column">
+          <div>
+            <p class="eyebrow">The problem</p>
+            <h2>Some recordings are too sensitive for a share link.</h2>
+          </div>
+          <p class="section-lead">
+            Product demos can include unreleased features. Bug reports can expose customer data. Meetings can contain
+            confidential decisions. SafeCap is built for those moments when you still need a clear recording, but you do
+            not want another cloud workspace holding the original file.
+          </p>
+        </div>
+      </section>
+
+      <section id="features" class="wrap section-pad">
+        <div class="section-heading">
+          <p class="eyebrow">What it helps you do</p>
+          <h2>Capture the context, keep the original.</h2>
+          <p>
+            SafeCap focuses on the core workflow: record, review, find, download, and delete. No accounts, dashboards,
+            or hosted video library to maintain.
+          </p>
+        </div>
+
+        <div class="feature-grid">
+          <article class="feature-card large-card">
+            <span class="feature-icon" aria-hidden="true">01</span>
+            <h3>Record the full story in one take</h3>
+            <p>
+              Capture screen, window, or browser tab video with system audio, microphone narration, or both. Use
+              audio-only mode when you just need a quick voice note.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <span class="feature-icon" aria-hidden="true">02</span>
+            <h3>Keep sensitive work off SafeCap servers</h3>
+            <p>
+              Recordings are written to local browser storage. SafeCap does not require an account, run product
+              analytics, or upload your videos to a backend.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <span class="feature-icon" aria-hidden="true">03</span>
+            <h3>Build a private recording library</h3>
+            <p>
+              Save recordings with useful metadata, search by name, tab, URL, or date, and play them back from a local
+              library when you need the reference.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <span class="feature-icon" aria-hidden="true">04</span>
+            <h3>Share only the files you choose</h3>
+            <p>
+              Review recordings locally, adjust playback speed, then download a WebM file when you are ready to send it
+              through Slack, GitHub, Jira, or email.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <span class="feature-icon" aria-hidden="true">05</span>
+            <h3>Find useful moments faster</h3>
+            <p>
+              When supported by your browser, SafeCap can save transcripts and browser-generated summaries or chapters
+              so long recordings are easier to scan.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="use-cases" class="wrap section-pad">
+        <div class="section-heading compact-heading">
+          <p class="eyebrow">Use cases</p>
+          <h2>Made for work you cannot casually upload.</h2>
+        </div>
+
+        <div class="use-case-list">
+          <article>
+            <h3>Product demos</h3>
+            <p>
+              Walk through a feature, prototype, or staging environment and keep the unedited source recording local
+              until you decide what to share.
+            </p>
+          </article>
+          <article>
+            <h3>Bug reports</h3>
+            <p>
+              Capture the exact browser flow with narration so teammates or clients can reproduce an issue without
+              scheduling another call.
+            </p>
+          </article>
+          <article>
+            <h3>Private meeting archive</h3>
+            <p>
+              Save important browser-based meetings locally for later review, especially when the conversation does not
+              belong in another cloud recording tool.
+            </p>
+          </article>
+          <article>
+            <h3>Client handoffs</h3>
+            <p>
+              Record async walkthroughs for freelance clients while controlling when and where the final WebM file is
+              shared.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="privacy" class="privacy-band section-pad">
+        <div class="wrap privacy-layout">
+          <div>
+            <p class="eyebrow">Privacy by design</p>
+            <h2>No SafeCap account. No SafeCap cloud. No telemetry.</h2>
+            <p class="section-lead">
+              SafeCap is designed around a simple promise: the extension helps you create recordings, but you stay in
+              control of the files.
+            </p>
+            <a class="text-link" href="privacy.html">View full privacy policy</a>
+          </div>
+          <div class="privacy-points" aria-label="Privacy details">
+            <div>
+              <strong>Local recording storage</strong>
+              <span>Video and audio files are stored in your browser's local storage area on your device.</span>
+            </div>
+            <div>
+              <strong>Plain-English permissions</strong>
+              <span
+                >Screen, microphone, storage, download, and tab permissions are used only to support recording and file
+                management.</span
+              >
+            </div>
+            <div>
+              <strong>User-controlled deletion</strong>
+              <span
+                >Delete recordings from the library when you no longer need them. Uninstalling the extension also
+                removes its local data.</span
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="chrome-store" class="wrap section-pad store-section">
+        <div class="store-card">
+          <div>
+            <p class="eyebrow">Available on the Chrome Web Store</p>
+            <h2>Easy to evaluate before you install.</h2>
+            <p>
+              The site includes a dedicated privacy policy, permission explanations, support contact, and clear
+              statements about local storage and data handling.
+            </p>
+          </div>
+          <div class="store-actions">
+            <a
+              class="button button-primary"
+              href="https://chromewebstore.google.com/detail/safecap/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              >Add SafeCap to Chrome</a
+            >
+            <a class="button button-secondary" href="mailto:hi@nirjan.dev?subject=SafeCap%20support">Contact support</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" class="wrap section-pad faq-section">
+        <div class="section-heading compact-heading">
+          <p class="eyebrow">FAQ</p>
+          <h2>Questions privacy-conscious users ask first.</h2>
+        </div>
+
+        <div class="faq-list">
+          <details>
+            <summary>Does SafeCap upload my recordings?</summary>
+            <p>
+              No. SafeCap does not upload recordings to SafeCap servers and does not require an account. Recordings are
+              stored locally in your browser until you download or delete them.
+            </p>
+          </details>
+
+          <details>
+            <summary>Is SafeCap a hosted Loom replacement?</summary>
+            <p>
+              SafeCap is focused on local capture and local review. It is useful when you want a recording file without
+              a hosted sharing workspace. You choose where to send the downloaded WebM file.
+            </p>
+          </details>
+
+          <details>
+            <summary>Can I record Google Meet, Zoom, or Teams?</summary>
+            <p>
+              SafeCap can record browser-based meetings when Chrome allows the selected tab, window, or screen to be
+              captured. Meeting audio availability depends on Chrome's capture prompt and the meeting app.
+            </p>
+          </details>
+
+          <details>
+            <summary>What file format does SafeCap export?</summary>
+            <p>
+              SafeCap currently records and downloads WebM files, a browser-native format that works well for
+              high-quality local recording.
+            </p>
+          </details>
+
+          <details>
+            <summary>Why does the extension need permissions?</summary>
+            <p>
+              SafeCap needs capture permissions to record your screen or microphone, storage permissions to save
+              recordings locally, download permissions to export files, and tab access to name recordings with useful
+              context.
+            </p>
+          </details>
+
+          <details>
+            <summary>How do transcripts and summaries work?</summary>
+            <p>
+              When available, SafeCap uses browser-provided speech recognition and summarization APIs to make recordings
+              easier to scan. SafeCap does not send transcripts, summaries, or recordings to its own servers.
+            </p>
+          </details>
+
+          <details>
+            <summary>Which browsers are supported?</summary>
+            <p>
+              SafeCap is built for Chrome. Chromium-based browsers such as Edge may work, but Chrome is the primary
+              target for now.
+            </p>
+          </details>
+
+          <details>
+            <summary>Who built SafeCap?</summary>
+            <p>
+              SafeCap is built by <a href="https://nirjan.dev">Nirjan Khadka</a>, a software developer building
+              practical, privacy-minded tools for the browser.
+            </p>
+          </details>
+        </div>
+      </section>
+
+      <section class="wrap final-cta section-pad">
+        <p class="eyebrow">Start private</p>
+        <h2>Record the thing. Keep control of the file.</h2>
+        <p>
+          SafeCap is for people who need clear recordings without turning every demo, bug report, or meeting into
+          another cloud asset.
+        </p>
+        <div class="hero-actions centered-actions">
+          <a
+            class="button button-primary"
+            href="https://chromewebstore.google.com/detail/safecap/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            >Install from Chrome Web Store</a
+          >
+          <a class="button button-secondary" href="mailto:hi@nirjan.dev?subject=SafeCap%20question">Ask a question</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap footer-grid">
+        <div>
+          <a class="brand footer-brand" href="#top" aria-label="SafeCap home">
+            <img class="brand-logo" src="icon.svg" width="32" height="32" alt="" aria-hidden="true" />
+            <span>SafeCap</span>
+          </a>
+          <p>
+            Private browser recording for demos, bug reports, and meetings. Built by
+            <a href="https://nirjan.dev">Nirjan Khadka</a>.
+          </p>
+        </div>
+        <div class="footer-links">
+          <a href="https://chromewebstore.google.com/detail/safecap/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            >Chrome Web Store</a
+          >
+          <a href="privacy.html">Privacy Policy</a>
+          <a href="mailto:hi@nirjan.dev">hi@nirjan.dev</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

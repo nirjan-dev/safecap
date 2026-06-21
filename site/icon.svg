@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <filter id="dotGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="128" height="128" rx="26" fill="#2563eb" />
+
+  <path d="M64 22 L90 33 L90 58 C90 74 79 85 64 92 C49 85 38 74 38 58 L38 33 Z" fill="white" opacity="0.15" />
+
+  <path
+    d="M64 22 L90 33 L90 58 C90 74 79 85 64 92 C49 85 38 74 38 58 L38 33 Z"
+    fill="none"
+    stroke="white"
+    stroke-width="5"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+  />
+
+  <circle cx="64" cy="57" r="14" fill="#ff3b3b" filter="url(#dotGlow)" />
+  <circle cx="64" cy="57" r="14" fill="none" stroke="white" stroke-width="2.5" opacity="0.4" />
+</svg>
